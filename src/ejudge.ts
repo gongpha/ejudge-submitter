@@ -1,11 +1,5 @@
-import { rejects } from 'assert';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
-import * as https from 'https';
-
-axios.defaults.withCredentials = true;
-
-const httpsAgent = new https.Agent({ keepAlive: true });
 
 const URL_HEAD = 'https://ejudge.it.kmitl.ac.th';
 const URL_LOGIN_NEW = '/auth/login';
@@ -20,6 +14,8 @@ export interface Course {
 	title?: string;
 	desc?: string;
 	owner?: Account;
+	release: Date;
+	expire: Date;
 	//descUpdatedDate : string;
 	//whoUpdated : Account;
 
@@ -83,6 +79,7 @@ export interface Submission {
 }
 
 export enum SubmissionLiteStatus {
+	what,
 	success,
 	danger,
 	warning
@@ -115,6 +112,10 @@ export interface Problem {
 	//bonusScore? : number;
 
 	lastSubmission?: Submission;
+	displayStatus?: SubmissionLiteStatus; // a checking button on "/course" page
+	rank?: number; // stars (1 - 5)
+	passed?: number;
+	attempt?: number;
 
 	// other data will get setup here soon . . .
 }
@@ -127,65 +128,93 @@ function getStringOrEnv(that: string): string {
 }
 
 export class EJudge {
-	username: string;
-	password: string;
+	username: string = "";
+	password: string = "";
 
 	axiosInstance: AxiosInstance;
+
+
 	webToken: string = "";
 
-	setCookie: string = "";
+	cookies: string[] = [];
 
-	constructor(username: string, password: string) {
-		this.username = getStringOrEnv(username);
-		this.password = getStringOrEnv(password);
-
+	constructor(cookies: string[] = []) {
+		this.cookies = cookies;
 		this.axiosInstance = axios.create({
 			baseURL: URL_HEAD,
-			withCredentials: true,
-			httpsAgent: httpsAgent
+			maxRedirects: 0,
+			validateStatus: function (status) {
+				return status >= 200 && status < 303;
+			}
 		});
 	}
 
-	login(): Promise<cheerio.CheerioAPI> {
+	login(next: string | undefined): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
 			const p = this.tryGetCheerOfURL(URL_LOGIN_NEW)
-				.then($ => { this.loginWithCheer($).then($ => resolve($)); })
+				.then($ => { this.loginWithCheer($, next).then($ => resolve($)); })
 				.catch(r => reject);
 		});
 	}
 
-	loginWithCheer($: cheerio.CheerioAPI): Promise<cheerio.CheerioAPI> {
+	onCookiesChanged(cookies: string[]) { }
+	onLogin(message: string): Promise<{
+		username: string;
+		password: string;
+		remember: boolean;
+	}> {
+		return Promise.resolve({
+			username: "",
+			password: "",
+			remember: false
+		});
+	}
+
+	loginWithCheer($: cheerio.CheerioAPI, next: string | undefined, message: string = ""): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
+			console.log("loging in (cheer)");
 			// find form
 			const webToken = $("input[name=_token]").attr('value');
 			if (webToken === undefined) {
 				reject("Failed to login : Cannot get a web token");
+				return;
 			}
 
 			this.webToken = webToken!;
 
-			// try loging in
-			const data = new URLSearchParams({
-				"username": this.username,
-				"password": this.password,
-				"_token": this.webToken,
-				"remember": "true"
-			});
-			this.axiosInstance.post(URL_LOGIN, data, {
-				withCredentials: true,
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-					"Accept": "*/*",
-					"Cookie": this.setCookie
-				}
-			}).then(
-				response => {
-					resolve(cheerio.load(response.data));
-				}
-			)
-				.catch(r => {
-					reject("Failed to login : Authentication Failed");
+			// waiting for login
+			this.onLogin(message).then(loginData => {
+				// try loging in
+				const data = new URLSearchParams({
+					"username": loginData.username,
+					"password": loginData.password,
+					"_token": this.webToken,
+					"remember": loginData.remember ? "true" : "false"
 				});
+
+				const nextURL = new URL(URL_HEAD + URL_LOGIN);
+				nextURL.searchParams.set('next', next ?? '');
+
+				this.tryGetCheerOfURL(nextURL.pathname + nextURL.search, "POST", data)
+					.then(
+						$ => {
+							if (this.isCheerLoginPage($)) {
+								// retry with message
+								const message = $("#login-box .alert").first().html()!;
+
+								this.loginWithCheer($, next, message).then($ => resolve($))
+									.catch(r => reject(r));
+								return;
+							}
+							resolve($);
+						}
+					)
+					.catch(r => {
+						reject("Failed to login : Authentication Failed");
+					});
+			}).catch(r => {
+				reject("Loging in canceled");
+			});
 		});
 	}
 
@@ -195,11 +224,35 @@ export class EJudge {
 		return content.length !== 0;
 	}
 
-	tryGetCheerOfURL(url: string): Promise<cheerio.CheerioAPI> {
+
+
+	tryGetCheerOfURL(url: string, method: string = "GET", data: {} | undefined = undefined): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
-			this.axiosInstance.get(url)
+			console.log("get cheer of " + url);
+			this.axiosInstance.request({
+				method: method,
+				data: data,
+				url: url,
+				headers: {
+					cookie: this.cookies.join(';'),
+				}
+			})
 				.then(response => {
-					this.setCookie = response.headers['set-cookie']![0];
+					this.cookies = response.headers['set-cookie']!;
+					this.onCookiesChanged(this.cookies);
+
+					// is redirected
+					if (response.status === 302) {
+						const next = response.headers['location'];
+						const nextURL = new URL(next);
+						console.log("redirecting to " + nextURL.pathname);
+
+						this.tryGetCheerOfURL(nextURL.pathname + nextURL.search)
+							.then($ => resolve($))
+							.catch(r => reject(r));
+						return;
+					}
+
 					resolve(cheerio.load(response.data));
 				})
 				.catch(r => {
@@ -211,19 +264,14 @@ export class EJudge {
 
 	tryGetCheerOfURLAndCheckAvailability(url: string): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
-			const loop = function($: cheerio.CheerioAPI, thisobj : EJudge): Promise<cheerio.CheerioAPI> {
-				if (thisobj.isCheerLoginPage($)) {
-					return thisobj.loginWithCheer($).then($ => loop($, thisobj));
+			this.tryGetCheerOfURL(url).then($ => {
+				if (this.isCheerLoginPage($)) {
+					this.loginWithCheer($, url).then($ => resolve($))
+						.catch(r => reject(r));
 				} else {
-					return thisobj.tryGetCheerOfURL(url);
+					resolve($);
 				}
-					
-			};
-
-			this.tryGetCheerOfURL(url).then($ => loop($, this)
-				.then($ => resolve($))
-				.catch(r => reject(r))
-			);
+			}).catch(r => reject(r));
 		});
 	}
 
@@ -241,23 +289,48 @@ export class EJudge {
 						const table = $("table");
 						const rows = table.find("tbody").find("tr");
 						rows.each((i, row) => {
-							const aHref = $($(row).find("td")[0]).find("a").first();
-							const url = aHref.attr("href");
+							const tds = $(row).find("td");
+							let aHref = $(tds[0]).find("a").first();
+							let url = aHref.attr("href");
 							if (url === undefined) {
 								// hmm
+								reject("Failed to get course list : Cannot get a course URL");
 								return;
 							}
 							const courseID = this.getIDfromLink(url);
 
-							const courseTitle = aHref.contents().contents().filter(function () {
+							const courseTitle = aHref.contents().filter(function () {
 								return this.type === 'text';
-							}).text();
+							}).text().trim();
+
+							// owner
+
+							aHref = $(tds[3]).find("a").first();
+							url = aHref.attr("href");
+							if (url === undefined) {
+								// hmm, no owner ?
+								reject("Failed to get course list : Cannot get a course owner URL");
+								return;
+							}
+							const ownerID = this.getIDfromLink(url);
+
+							const ownerFullname = aHref.contents().filter(function () {
+								return this.type === 'text';
+							}).text().trim();
+
+							const account: Account = {
+								id: ownerID,
+								fullname: ownerFullname
+							};
 
 							// more data can be imported here !
 
 							courses.push({
 								id: courseID,
-								title: courseTitle
+								title: courseTitle,
+								release: new Date($(tds[1]).text()),
+								expire: new Date($(tds[2]).text()),
+								owner: account
 							});
 						});
 						resolve(courses);
@@ -268,23 +341,25 @@ export class EJudge {
 	}
 
 	fillCourseProblems(course: Course) {
-		return new Promise<Course[]>((resolve, reject) => {
+		return new Promise<Problem[]>((resolve, reject) => {
 			// Enter the course first
-			this.tryGetCheerOfURLAndCheckAvailability(URL_COURSE + `/${course.id}/enter`)
+			const nextURL = new URL(URL_HEAD + URL_COURSE + `/${course.id}/enter`);
+			nextURL.searchParams.set("next", "/problem");
+			this.tryGetCheerOfURLAndCheckAvailability(nextURL.pathname + nextURL.search)
 				.then(
 					$ => {
 						// $ is a problem page
 						const problems: Problem[] = [];
 
-						const tbody = $(".col-xs-12 > table > tbody");
+						const tbody = $(".col-xs-12").find("table > tbody");
 						const rows = tbody.find("tr");
 						rows.each((i, row) => {
 							// each problem
-							const tds = $(row).find("td").children();
+							const tds = $(row).find("td");
 
 
 							// 1. problem name
-							const aHref = $($(tds[0]).find('a')[1]);
+							let aHref = $($(tds[0]).find('a')[1]);
 							const link = aHref.attr("href");
 							if (link === undefined) {
 								reject("Failed to get a problem link");
@@ -292,10 +367,44 @@ export class EJudge {
 							}
 							const problemName = aHref.text();
 
+							// 2. rank (stars)
+							const fasList = $(tds[1]).find(".fas").length;
+
+							// 3. Checking Button
+							aHref = $($(tds[0]).find('a')[0]);
+							const status = aHref.attr("title");
+							let statusEnum: SubmissionLiteStatus = SubmissionLiteStatus.what;
+							switch (status) {
+								case "Passed":
+									statusEnum = SubmissionLiteStatus.success;
+									break;
+								case "Not Passed":
+									statusEnum = SubmissionLiteStatus.danger;
+									break;
+								case "Passed (Quality < 100%)":
+									statusEnum = SubmissionLiteStatus.warning;
+									break;
+							}
+
+							// 4. Deadline
+							const deadline = new Date($(tds[5]).text());
+
+							// 5. Passed / Attempt
+							// 2. rank (stars)
+							const passed = $($(tds[2]).find('a').first()).text();
+							const attempt = $($(tds[3]).find('a').first()).text();
+
+
 							problems.push({
 								id: this.getIDfromLink(link),
-								title: problemName
+								title: problemName.trim(),
+								rank: fasList,
+								displayStatus: statusEnum,
+								deadline: deadline,
+								passed: parseInt(passed),
+								attempt: parseInt(attempt)
 							});
+
 						});
 
 						course.problems = problems;

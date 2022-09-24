@@ -10,9 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:ejudge-submitter.login",
-		"onCommand:ejudge-submitter.openProblem",
-		"onCommand:ejudge-submitter.submitProblem"
+		"*"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
