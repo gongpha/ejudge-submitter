@@ -111,7 +111,9 @@ export interface Problem {
 	//fullScore? : number;
 	//bonusScore? : number;
 
-	lastSubmission?: Submission;
+	lastSubmission?: SubmissionLite;
+
+	// Front
 	displayStatus?: SubmissionLiteStatus; // a checking button on "/course" page
 	rank?: number; // stars (1 - 5)
 	passed?: number;
@@ -157,7 +159,7 @@ export class EJudge {
 		});
 	}
 
-	onCookiesChanged(cookies: string[]) { }
+	onCookiesChanged(cookies: string[]): void { }
 	onLogin(message: string): Promise<{
 		username: string;
 		password: string;
@@ -169,6 +171,7 @@ export class EJudge {
 			remember: false
 		});
 	}
+	onLoginSuccess(): void {}
 
 	loginWithCheer($: cheerio.CheerioAPI, next: string | undefined, message: string = ""): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
@@ -206,6 +209,7 @@ export class EJudge {
 									.catch(r => reject(r));
 								return;
 							}
+							this.onLoginSuccess();
 							resolve($);
 						}
 					)
@@ -390,7 +394,6 @@ export class EJudge {
 							const deadline = new Date($(tds[5]).text());
 
 							// 5. Passed / Attempt
-							// 2. rank (stars)
 							const passed = $($(tds[2]).find('a').first()).text();
 							const attempt = $($(tds[3]).find('a').first()).text();
 
@@ -422,7 +425,9 @@ export class EJudge {
 					$ => {
 						const problem: Problem = { id: problemID };
 
-						const rows = $(".col-lg-9 > .row");
+						problem.title = $('.content-header > h1').first().text().trim();
+
+						let rows = $(".col-lg-9 > .row");
 						let data: Map<string, string>;
 
 						/* rows.each((i, e) => {
@@ -432,45 +437,48 @@ export class EJudge {
 						let _, __: any;
 
 						// Desc
-						_ = $(rows[0]).find("box-body");
-						problem.descRaw = _.text();
+						_ = $(rows[0]).find(".box-body");
+						problem.descRaw = _.html()!.trim();
 
 						// Spec
-						_ = $(rows[1]).find("box-body > td");
+						let table = $(rows[1]).find(".box-body > table");
+						_ = table.find("tbody > tr");
 
 						__ = _.get(0);
-						if (__ !== undefined) { problem.specIn = $(__).text(); };
+						if (__ !== undefined) { problem.specIn = $(__).text().trim(); };
 						__ = _.get(1);
-						if (__ !== undefined) { problem.specOut = $(__).text(); };
+						if (__ !== undefined) { problem.specOut = $(__).text().trim(); };
 
 						// Cases
-						_ = $(rows[2]).find("box-body > td");
+						table = $(rows[2]).find(".box-body > table");
+						_ = table.find("tbody > tr");
 						let temp: string[] | undefined;
 						const strarray: string[][] = [];
-						rows.each((i, e) => {
-							const E = $(e);
-							if (temp === undefined) {
-								temp = [E.text(), ""];
-							} else {
-								temp[1] = E.text();
-								strarray.push(temp);
-								temp = undefined;
-							}
+						_.each((i, e) => {
+							const E = $(e).find('td > pre');
+							strarray.push([
+								$(E[0]).text().trim(),
+								$(E[1]).text().trim()
+							]);
 						});
 
 						problem.samples = strarray;
 
 						// Info
-						_ = $(rows[1]).find("box-body > dd");
+						rows = $(".col-lg-3 > .row");
+						_ = $(rows[1]).find(".box-body");
+						_ = $(_).find('dd');
 						__ = _.get(3);
 						if (__ !== undefined) {
 							problem.deadline = new Date($(__).text());
 						}
 
-						__ = _.get(4);
+						__ = _.get(5);
 						if (__ !== undefined) {
 							const span = $(__).find("span");
-							problem.restictWord = $(span).text().split(" ");
+							if (span.hasClass('label-danger')){
+								problem.restictWord = $(span).text().trim().split(" ");
+							}
 						}
 
 						__ = _.get(11);
@@ -487,14 +495,14 @@ export class EJudge {
 								if (P.hasClass("label-success")) { status = SubmissionLiteStatus.success; }
 								else if (P.hasClass("label-danger")) { status = SubmissionLiteStatus.danger; }
 								else { status = SubmissionLiteStatus.warning; }
-								const col = $(p).hasClass;
 
 								const submissionLite: SubmissionLite = {
 									id: submissionID,
 									problem: problem,
-									display: $(p).text(),
+									display: $(p).text().trim(),
 									status: status
 								};
+								problem.lastSubmission = submissionLite;
 							}
 						}
 

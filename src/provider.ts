@@ -58,7 +58,7 @@ class EJudgeCourseTreeDecorationProvider implements FileDecorationProvider {
 
 	provideFileDecoration(uri: Uri): ProviderResult<FileDecoration> {
 		// file://ejudge/object/status/rank/passed/attempt/
-		// file://ejudge/problem/success/2/20/15/ <-- EXAMPLE
+		// file://ejudge/problem/success/2/15/20/ <-- EXAMPLE
 		if (uri.authority === "ejudge") {
 			const slist = uri.path.split("/");
 			if (slist[1] === "problem") {
@@ -109,20 +109,21 @@ class CourseItem extends TreeItem {
 		return new Promise<ProblemItem[]>((resolve, reject) => {
 			ejudge.fillCourseProblems(this.course).then((problems) => {
 				resolve(problems.map((problem) => new ProblemItem(problem)));
-			}).catch((reason) => resolve([])); // sorry bro
+			}).catch((reason) => {
+				//window.showInformationMessage(reason);
+				reject(reason);
+			}); // sorry bro
 		});
 	}
 }
 
 class ProblemItem extends TreeItem {
-	cached?: ProblemItem[];
-
 	constructor(problem: Problem) {
 		super(problem.title ??= "<undefined>");
 		this.iconPath = new ThemeIcon("code");
 		this.command = {
-			title: "View a problem",
-			command: "ejudge-submitter.viewProblem",
+			title: "Open a problem",
+			command: "ejudge-submitter.openProblem",
 			arguments: [problem.id],
 		};
 		const stars = (
@@ -147,8 +148,6 @@ class ProblemItem extends TreeItem {
 	}
 
 	requestFullItem(ejudge: EJudge): Promise<TreeItem[]> {
-		return new Promise<TreeItem[]>((resolve, reject) => {
-			resolve([]);
-		});
+		return Promise.resolve([]); // No children !
 	}
 }

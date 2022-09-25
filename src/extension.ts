@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { EJudge, Problem } from './ejudge';
-import { getProblemContent, getLoginContent } from './webview';
+import { getProblemContent, getLoginContent, getLoadingContent } from './webview';
 import { EJudgeCourseTreeProvider } from './provider';
 
 const EXTENSION_NAME: String = "ejudge-submitter";
@@ -55,33 +55,19 @@ export function activate(context: vscode.ExtensionContext) {
 			panel.title = "Login";
 			panel.webview.html = getLoginContent(panel.webview, context.extensionUri, m);
 			panel.webview.onDidReceiveMessage(after);
-
 		});
 
 	};
 
-	context.subscriptions.push(vscode.commands.registerCommand(EXTENSION_NAME + '.submitProblem', async () => {
-		vscode.window.showInformationMessage("Gathering data from <e>judge . . .");
-
-		const problemIDRaw = await vscode.window.showInputBox({
-			value: '',
-			placeHolder: 'Type a problem ID (https://ejudge.it.kmitl.ac.th/problem/XXX)',
-		});
-
-		if (!problemIDRaw) {
+	student.onLoginSuccess = () => {
+		if (!panel) {
 			return;
 		}
 
-		const problemID: number = parseInt(problemIDRaw);
-		vscode.window.showInformationMessage(`Submitting code to #${problemID}`);
-
-		// try ^^
-		student.getProblem(problemID)
-			.then(problem => {
-				console.log("k");
-			})
-			.catch(r => vscode.window.showErrorMessage);
-	}));
+		if (panel.title === "Login") {
+			panel.dispose(); // close the login panel
+		}
+	};
 
 	/* Login */
 	const login = vscode.commands.registerCommand(EXTENSION_NAME + '.login', () => {
@@ -104,7 +90,14 @@ export function activate(context: vscode.ExtensionContext) {
 	provider.refresh();
 
 	const openProblem = vscode.commands.registerCommand(EXTENSION_NAME + '.openProblem', (problemID: number) => {
-		return;
+		const panel = getWebview(context);
+		panel.title = `Problem #${problemID}`;
+		panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, panel.title);
+
+		student.getProblem(problemID).then((problem) => {
+			panel.title = `${problem.title} (#${problemID})`;
+			panel.webview.html = getProblemContent(panel.webview, context.extensionUri, problem);
+		});
 	});
 	context.subscriptions.push(openProblem);
 }

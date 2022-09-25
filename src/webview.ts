@@ -1,5 +1,5 @@
 import { Disposable, Webview, WebviewPanel, window, Uri, ViewColumn } from "vscode";
-import { Problem } from './ejudge';
+import { Problem, SubmissionLite, SubmissionLiteStatus } from './ejudge';
 
 export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
 	return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
@@ -48,13 +48,28 @@ export function getLoginContent(webview: Webview, extensionUri: Uri, message: st
 	  `;
 };
 
+export function getSubmissionLiteHTML(submission: SubmissionLite | undefined) {
+	if (!submission) {
+		return ". . .";
+	}
+	return `<pre class="submission-lite ${submission.status === SubmissionLiteStatus.danger ? "submission-not-passed" : "submission-passed"
+		}">${submission.display}</pre>&nbsp&nbsp(#${submission.id})`;
+}
+
 export function getProblemContent(webview: Webview, extensionUri: Uri, problem: Problem): string {
 	const samples = (problem.samples ??= []).map(sample => {
-		`<vscode-data-grid-row>\
-		<vscode-data-grid-cell grid-column="1">${sample[0]}</vscode-data-grid-cell>\
-		<vscode-data-grid-cell grid-column="2">${sample[1]}</vscode-data-grid-cell>\
-		</vscode-data-grid-row>`;
+		return `<vscode-data-grid-row class="samples-row">
+			<vscode-data-grid-cell grid-column="1" class="samples-cell head"><pre>${sample[0]}</pre></vscode-data-grid-cell>
+			<vscode-data-grid-cell grid-column="2" class="samples-cell"><pre>${sample[1]}</pre></vscode-data-grid-cell>
+			</vscode-data-grid-row>`;
 	});
+
+	const restricts = (problem.restictWord ??= []).map(sample => {
+		return "<pre>" + sample + "</pre>";
+	});
+	const rest = (
+		restricts.length > 0 ? restricts.join(" "): "<i>No Restrict</i>"
+	);
 
 	return `
 		<!DOCTYPE html>
@@ -66,34 +81,70 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 		  <body id="webview-body">
 			<header>
 				<h1>${problem.title ??= "<unfilled object>"}</h1>
+				<base href="https://ejudge.it.kmitl.ac.th/">
 			</header>
 			<vscode-panels>
 				<vscode-panel-tab id="tab-1">Description</vscode-panel-tab>
-				<vscode-panel-tab id="tab-2">Specifications</vscode-panel-tab>
-				<vscode-panel-tab id="tab-3">Samples</vscode-panel-tab>
+				<vscode-panel-tab id="tab-2">Specs & Samples</vscode-panel-tab>
+				<vscode-panel-tab id="tab-3">Information</vscode-panel-tab>
 				<vscode-panel-view id="view-1">${problem.descRaw ??= ". . ."}</vscode-panel-view>
 				<vscode-panel-view id="view-2">
+					<div class="specs-samples-view">
+						<h3>Specification</h3>
+						<vscode-data-grid aria-label="Basic">
+							<vscode-data-grid-row row-type="header">
+								<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
+								<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
+							</vscode-data-grid-row>
+							<vscode-data-grid-row>
+								<vscode-data-grid-cell grid-column="1">${problem.specIn}</vscode-data-grid-cell>
+								<vscode-data-grid-cell grid-column="2">${problem.specIn}</vscode-data-grid-cell>
+							</vscode-data-grid-row>
+						</vscode-data-grid>
+						<vscode-divider></vscode-divider>
+						<h3>Samples</h3>
+						<vscode-data-grid aria-label="Basic">
+							<vscode-data-grid-row row-type="header">
+								<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
+								<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
+							</vscode-data-grid-row>
+							${samples.join('')}
+						</vscode-data-grid>
+					</div>
+				</vscode-panel-view>
+				<vscode-panel-view id="view-3">
 					<vscode-data-grid aria-label="Basic">
-						<vscode-data-grid-row row-type="header">
-							<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
-							<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
+						<vscode-data-grid-row>
+							<vscode-data-grid-cell grid-column="1">Deadline</vscode-data-grid-cell>
+							<vscode-data-grid-cell grid-column="2">${problem.deadline?.toLocaleString()}</vscode-data-grid-cell>
 						</vscode-data-grid-row>
 						<vscode-data-grid-row>
-							<vscode-data-grid-cell grid-column="1">${problem.specIn}</vscode-data-grid-cell>
-							<vscode-data-grid-cell grid-column="2">${problem.specIn}</vscode-data-grid-cell>
+							<vscode-data-grid-cell grid-column="1">Restrict Words</vscode-data-grid-cell>
+							<vscode-data-grid-cell grid-column="2">${rest}</vscode-data-grid-cell>
+						</vscode-data-grid-row>
+						<vscode-data-grid-row>
+							<vscode-data-grid-cell grid-column="1">Your Score</vscode-data-grid-cell>
+							<vscode-data-grid-cell grid-column="2">${getSubmissionLiteHTML(problem.lastSubmission)}</vscode-data-grid-cell>
 						</vscode-data-grid-row>
 					</vscode-data-grid>
 				</vscode-panel-view>
-				<vscode-panel-view id="view-3">
-				<vscode-data-grid aria-label="Basic">
-					<vscode-data-grid-row row-type="header">
-						<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
-						<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
-					</vscode-data-grid-row>
-					${samples}
-				</vscode-data-grid>
-				</vscode-panel-view>
 			</vscode-panels>
+		  </body>
+		</html>
+	  `;
+}
+
+export function getLoadingContent(webview: Webview, extensionUri: Uri, title: string): string {
+	return `
+		<!DOCTYPE html>
+		<html lang="en">
+		  <head>
+			  ${getMetaAndScriptTabs(webview, extensionUri, "problem.js")}
+			  <title>${title}</title>
+		  </head>
+		  <body id="webview-body">
+			<vscode-progress-ring></vscode-progress-ring>
+			Loading . . .
 		  </body>
 		</html>
 	  `;

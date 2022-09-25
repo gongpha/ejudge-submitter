@@ -10,7 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"*"
+		"onCommand:ejudge-submitter.login"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -23,11 +23,6 @@
 			{
 				"command": "ejudge-submitter.openProblem",
 				"title": "Open a problem by ID",
-				"category": "<e>judge"
-			},
-			{
-				"command": "ejudge-submitter.submitProblem",
-				"title": "Submit Problem",
 				"category": "<e>judge"
 			}
 		],
@@ -43,7 +38,7 @@
 		"viewsWelcome": [
 			{
 				"view": "ejudge-submitter.courseTree",
-				"contents": "Login to <e>judge first !\n[Go to login page](command:ejudge-submitter.login)"
+				"contents": "[Connect to <e>ejudge](command:ejudge-submitter.login)"
 			}
 		],
 		"views": {

@@ -3,3 +3,47 @@
 	grid-auto-flow: row;
 	grid-row-gap: 1.5rem;
 }
+
+pre {
+	font-family: var(--vscode-editor-font-family);
+}
+
+.specs-samples-view {
+	display: grid;
+	width: 100%;
+}
+
+.samples-row {
+	margin-bottom: 10px;
+}
+
+.samples-cell {
+	border: 1px solid #333;
+    border-radius: 9px;
+}
+
+.samples-cell.head {
+	margin-right: 10px;
+}
+
+.submission-passed {
+	background-image: linear-gradient(to left, #28ec28, #51f2c5);
+}
+
+.submission-not-passed {
+	background-image: linear-gradient(to left, #d9534f, #ff5aed);
+}
+
+.submission-lite {
+	/* direct copy from bootstrap lmao */
+	display: inline;
+	padding: 3px 15px 3px;
+	font-size: 125%;
+	font-weight: 700;
+	line-height: 1;
+	color: #000 !important;
+	text-align: center;
+	white-space: nowrap;
+	vertical-align: baseline;
+	border-radius: 5px;
+}
