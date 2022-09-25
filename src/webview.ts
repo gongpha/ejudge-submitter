@@ -83,52 +83,52 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 				<h1>${problem.title ??= "<unfilled object>"}</h1>
 				<base href="https://ejudge.it.kmitl.ac.th/">
 			</header>
-			<vscode-panels>
-				<vscode-panel-tab id="tab-1">Description</vscode-panel-tab>
-				<vscode-panel-tab id="tab-2">Specs & Samples</vscode-panel-tab>
-				<vscode-panel-tab id="tab-3">Information</vscode-panel-tab>
-				<vscode-panel-view id="view-1">${problem.descRaw ??= ". . ."}</vscode-panel-view>
-				<vscode-panel-view id="view-2">
-					<div class="specs-samples-view">
-						<h3>Specification</h3>
-						<vscode-data-grid aria-label="Basic">
-							<vscode-data-grid-row row-type="header">
-								<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
-								<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
-							</vscode-data-grid-row>
-							<vscode-data-grid-row>
-								<vscode-data-grid-cell grid-column="1">${problem.specIn}</vscode-data-grid-cell>
-								<vscode-data-grid-cell grid-column="2">${problem.specIn}</vscode-data-grid-cell>
-							</vscode-data-grid-row>
-						</vscode-data-grid>
-						<vscode-divider></vscode-divider>
-						<h3>Samples</h3>
-						<vscode-data-grid aria-label="Basic">
-							<vscode-data-grid-row row-type="header">
-								<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
-								<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
-							</vscode-data-grid-row>
-							${samples.join('')}
-						</vscode-data-grid>
-					</div>
-				</vscode-panel-view>
-				<vscode-panel-view id="view-3">
-					<vscode-data-grid aria-label="Basic">
-						<vscode-data-grid-row>
-							<vscode-data-grid-cell grid-column="1">Deadline</vscode-data-grid-cell>
-							<vscode-data-grid-cell grid-column="2">${problem.deadline?.toLocaleString()}</vscode-data-grid-cell>
-						</vscode-data-grid-row>
-						<vscode-data-grid-row>
-							<vscode-data-grid-cell grid-column="1">Restrict Words</vscode-data-grid-cell>
-							<vscode-data-grid-cell grid-column="2">${rest}</vscode-data-grid-cell>
-						</vscode-data-grid-row>
-						<vscode-data-grid-row>
-							<vscode-data-grid-cell grid-column="1">Your Score</vscode-data-grid-cell>
-							<vscode-data-grid-cell grid-column="2">${getSubmissionLiteHTML(problem.lastSubmission)}</vscode-data-grid-cell>
-						</vscode-data-grid-row>
-					</vscode-data-grid>
-				</vscode-panel-view>
-			</vscode-panels>
+			<div class="problem-body">
+				<vscode-data-grid aria-label="Basic">
+					<vscode-data-grid-row>
+						<vscode-data-grid-cell grid-column="1">Deadline</vscode-data-grid-cell>
+						<vscode-data-grid-cell grid-column="2">${problem.deadline?.toLocaleString()}</vscode-data-grid-cell>
+					</vscode-data-grid-row>
+					<vscode-data-grid-row>
+						<vscode-data-grid-cell grid-column="1">Restrict Words</vscode-data-grid-cell>
+						<vscode-data-grid-cell grid-column="2">${rest}</vscode-data-grid-cell>
+					</vscode-data-grid-row>
+					<vscode-data-grid-row>
+						<vscode-data-grid-cell grid-column="1">Your Score</vscode-data-grid-cell>
+						<vscode-data-grid-cell grid-column="2">${getSubmissionLiteHTML(problem.lastSubmission)}</vscode-data-grid-cell>
+					</vscode-data-grid-row>
+				</vscode-data-grid>
+				<vscode-divider></vscode-divider>
+				<vscode-panels>
+					<vscode-panel-tab id="tab-1">Description</vscode-panel-tab>
+					<vscode-panel-tab id="tab-2">Specs & Samples</vscode-panel-tab>
+					<vscode-panel-view id="view-1">${problem.descRaw ??= ". . ."}</vscode-panel-view>
+					<vscode-panel-view id="view-2">
+						<div class="samples-body">
+							<h3>Specification</h3>
+							<vscode-data-grid aria-label="Basic">
+								<vscode-data-grid-row row-type="header">
+									<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
+									<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
+								</vscode-data-grid-row>
+								<vscode-data-grid-row>
+									<vscode-data-grid-cell grid-column="1">${problem.specIn}</vscode-data-grid-cell>
+									<vscode-data-grid-cell grid-column="2">${problem.specIn}</vscode-data-grid-cell>
+								</vscode-data-grid-row>
+							</vscode-data-grid>
+							<vscode-divider></vscode-divider>
+							<h3>Samples</h3>
+							<vscode-data-grid aria-label="Basic">
+								<vscode-data-grid-row row-type="header">
+									<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>
+									<vscode-data-grid-cell cell-type="columnheader" grid-column="2">Output</vscode-data-grid-cell>
+								</vscode-data-grid-row>
+								${samples.join('')}
+							</vscode-data-grid>
+						</div>
+					</vscode-panel-view>
+				</vscode-panels>
+			</div>
 		  </body>
 		</html>
 	  `;

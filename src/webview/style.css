@@ -8,8 +8,11 @@ pre {
 	font-family: var(--vscode-editor-font-family);
 }
 
-.specs-samples-view {
+.problem-body {
 	display: grid;
+}
+
+.samples-body {
 	width: 100%;
 }
 
