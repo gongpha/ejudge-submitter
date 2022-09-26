@@ -1,12 +1,21 @@
+import CancelablePromise from './util/cancelable_promise';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
+import { resolve } from 'path';
 
 const URL_HEAD = 'https://ejudge.it.kmitl.ac.th';
 const URL_LOGIN_NEW = '/auth/login';
+const URL_LOGOUT = '/auth/logout';
 const URL_LOGIN = '/auth/loggedin';
-const URL_ACCOUNT_ME = '/account/me';
+const URL_ACCOUNT = '/account/';
 const URL_COURSE = '/course';
 const URL_PROBLEM = '/problem';
+
+export interface Authentication {
+	username: string;
+	password: string;
+	remember: boolean;
+}
 
 export interface Course {
 	id: number;
@@ -31,9 +40,9 @@ export interface Account {
 
 	username?: string;
 	fullname?: string;
+	profilePicURL?: string;
 	email?: string;
 	desc?: string;
-	profileURL?: string;
 
 	//problems
 	//quizzes
@@ -130,15 +139,10 @@ function getStringOrEnv(that: string): string {
 }
 
 export class EJudge {
-	username: string = "";
-	password: string = "";
-
 	axiosInstance: AxiosInstance;
-
-
 	webToken: string = "";
-
 	cookies: string[] = [];
+	waitingLogin: CancelablePromise<Authentication> | undefined;
 
 	constructor(cookies: string[] = []) {
 		this.cookies = cookies;
@@ -151,27 +155,125 @@ export class EJudge {
 		});
 	}
 
-	login(next: string | undefined): Promise<cheerio.CheerioAPI> {
-		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
-			const p = this.tryGetCheerOfURL(URL_LOGIN_NEW)
-				.then($ => { this.loginWithCheer($, next).then($ => resolve($)); })
+	attemptLogin(): Promise<boolean> {
+		// really a CHEAP method for attempting a login form
+		// don't use this if you prefer page content from the single request
+		// use tryGetCheerOfURLAndCheckAvailability instead (for internally usage)
+		return new Promise<boolean>((resolve, reject) => {
+			this.tryGetCheerOfURLAndCheckAvailability('/').then($ => {
+				resolve(true);
+			}).catch(r => {
+				resolve(false);
+			});
+		});
+	}
+
+	tryLogout(): Promise<boolean> {
+		return new Promise<boolean>((resolve, reject) => {
+			this.tryGetCheerOfURL(URL_LOGOUT).then($ => {
+				resolve(this.isCheerLoginPage($));
+			}).catch(r => reject(r));
+		});
+	}
+
+	getMyAccountOrGuest(): Promise<Account | undefined> {
+		return new Promise<Account | undefined>((resolve, reject) => {
+			this.tryGetCheerOfURL(URL_ACCOUNT + "me").then($ => {
+				if (this.isCheerLoginPage($)) {
+					resolve(undefined);
+				} else {
+					resolve(this.getAccountFromCheer($));
+				}
+			});
+		});
+	}
+
+	getAccount(accountID: number | "me"): Promise<Account> {
+		return new Promise<Account>((resolve, reject) => {
+			const p = this.tryGetCheerOfURLAndCheckAvailability(URL_ACCOUNT + (
+				(accountID === "me") ? "me" : accountID.toString()
+			))
+				.then($ => {
+
+					const col = $(".col-xs-12");
+					const col3 = col.find(".col-xs-3");
+					const well = col.find(".col-xs-9 > .well");
+					const aList = col3.find('a');
+
+					const aEdit = aList[aList.length - 1];
+					const link = $(aEdit).attr('href')?.split('/');
+					if (link === undefined) {
+						reject("Link wasn't found");
+						return;
+					}
+					if (link?.length < 2) {
+						reject("Invalid link");
+						return;
+					}
+					const id = link[link.length - 2];
+
+					const aSpan = col3.find('span');
+
+
+					const account: Account = {
+						id: parseInt(id),
+						profilePicURL: $(".img-responsive").attr("src"),
+
+						username: $(aSpan[0]).text().trim(),
+						fullname: $(aSpan[1]).text().trim(),
+						email: $(aSpan[2]).find('a').first().text().trim(),
+						desc: well.text().trim(),
+					};
+					resolve(account);
+				})
 				.catch(r => reject);
 		});
 	}
 
+	getAccountFromCheer($: cheerio.CheerioAPI): Promise<Account> {
+		return new Promise<Account>((resolve, reject) => {
+			const col = $(".col-xs-12");
+			const col3 = col.find(".col-xs-3");
+			const well = col.find(".col-xs-9 > .well");
+			const aList = col3.find('a');
+
+			const aEdit = aList[aList.length - 1];
+			const link = $(aEdit).attr('href')?.split('/');
+			if (link === undefined) {
+				reject("Link wasn't found");
+				return;
+			}
+			if (link?.length < 2) {
+				reject("Invalid link");
+				return;
+			}
+			const id = link[link.length - 2];
+
+			const aSpan = col3.find('span');
+
+
+			const account: Account = {
+				id: parseInt(id),
+				profilePicURL: $(".img-responsive").attr("src"),
+
+				username: $(aSpan[0]).text().trim(),
+				fullname: $(aSpan[1]).text().trim(),
+				email: $(aSpan[2]).find('a').first().text().trim(),
+				desc: well.text().trim(),
+			};
+			resolve(account);
+		});
+	}
+
 	onCookiesChanged(cookies: string[]): void { }
-	onLogin(message: string): Promise<{
-		username: string;
-		password: string;
-		remember: boolean;
-	}> {
+	onLogin(message: string): Promise<Authentication> {
 		return Promise.resolve({
 			username: "",
 			password: "",
 			remember: false
 		});
 	}
-	onLoginSuccess(): void {}
+	onLoginSuccess(): void { }
 
 	loginWithCheer($: cheerio.CheerioAPI, next: string | undefined, message: string = ""): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
@@ -186,8 +288,17 @@ export class EJudge {
 			this.webToken = webToken!;
 
 			// waiting for login
-			this.onLogin(message).then(loginData => {
+
+			if (this.waitingLogin !== undefined) {
+				// cancel that pending promise
+				this.waitingLogin.cancel();
+			}
+
+			this.waitingLogin = new CancelablePromise<Authentication>(this.onLogin(message));
+
+			this.waitingLogin.promise.then(loginData => {
 				// try loging in
+				this.waitingLogin = undefined;
 				const data = new URLSearchParams({
 					"username": loginData.username,
 					"password": loginData.password,
@@ -261,7 +372,7 @@ export class EJudge {
 				})
 				.catch(r => {
 					console.error(r);
-					reject("Getting HTML Failed");
+					reject("Getting HTML Failed : " + url);
 				});
 		});
 	}
@@ -347,74 +458,112 @@ export class EJudge {
 	fillCourseProblems(course: Course) {
 		return new Promise<Problem[]>((resolve, reject) => {
 			// Enter the course first
-			const nextURL = new URL(URL_HEAD + URL_COURSE + `/${course.id}/enter`);
-			nextURL.searchParams.set("next", "/problem");
-			this.tryGetCheerOfURLAndCheckAvailability(nextURL.pathname + nextURL.search)
-				.then(
-					$ => {
-						// $ is a problem page
-						const problems: Problem[] = [];
+			const problems: Problem[] = [];
+			let pageNumber = 1;
 
-						const tbody = $(".col-xs-12").find("table > tbody");
-						const rows = tbody.find("tr");
-						rows.each((i, row) => {
-							// each problem
-							const tds = $(row).find("td");
+			const getProblemsByPage = (pageNumber: number): Promise<Problem[] | undefined> => {
+				return new Promise<Problem[] | undefined>((resolve, reject) => {
+					const nextURL = new URL(URL_HEAD + URL_COURSE + `/${course.id}/enter`);
+					const paramURL = new URL(URL_HEAD + "/problem");
+					paramURL.searchParams.set('page', pageNumber.toString());
+					nextURL.searchParams.set("next", paramURL.pathname + paramURL.search);
+					this.tryGetCheerOfURLAndCheckAvailability(nextURL.pathname + nextURL.search)
+						.then(
+							$ => {
+								// $ is a problem page
 
 
-							// 1. problem name
-							let aHref = $($(tds[0]).find('a')[1]);
-							const link = aHref.attr("href");
-							if (link === undefined) {
-								reject("Failed to get a problem link");
-								return;
+								const tbody = $(".col-xs-12").find("table > tbody");
+								const rows = tbody.find("tr");
+								if (rows.length === 0) {
+									resolve(undefined);
+									return;
+								}
+								rows.each((i, row) => {
+									// each problem
+									const tds = $(row).find("td");
+
+
+									// 1. problem name
+									let aHref = $($(tds[0]).find('a')[1]);
+									const link = aHref.attr("href");
+									if (link === undefined) {
+										reject("Failed to get a problem link");
+										return;
+									}
+									const problemName = aHref.text();
+
+									// 2. rank (stars)
+									const fasList = $(tds[1]).find(".fas").length;
+
+									// 3. Checking Button
+									aHref = $($(tds[0]).find('a')[0]);
+									const status = aHref.attr("title");
+									let statusEnum: SubmissionLiteStatus = SubmissionLiteStatus.what;
+									switch (status) {
+										case "Passed":
+											statusEnum = SubmissionLiteStatus.success;
+											break;
+										case "Not Passed":
+											statusEnum = SubmissionLiteStatus.danger;
+											break;
+										case "Passed (Quality < 100%)":
+											statusEnum = SubmissionLiteStatus.warning;
+											break;
+									}
+
+									// 4. Deadline
+									const deadline = new Date($(tds[5]).text());
+
+									// 5. Passed / Attempt
+									const passed = $($(tds[2]).find('a').first()).text();
+									const attempt = $($(tds[3]).find('a').first()).text();
+
+
+									problems.push({
+										id: this.getIDfromLink(link),
+										title: problemName.trim(),
+										rank: fasList,
+										displayStatus: statusEnum,
+										deadline: deadline,
+										passed: parseInt(passed),
+										attempt: parseInt(attempt)
+									});
+
+								});
+								resolve(problems);
 							}
-							const problemName = aHref.text();
-
-							// 2. rank (stars)
-							const fasList = $(tds[1]).find(".fas").length;
-
-							// 3. Checking Button
-							aHref = $($(tds[0]).find('a')[0]);
-							const status = aHref.attr("title");
-							let statusEnum: SubmissionLiteStatus = SubmissionLiteStatus.what;
-							switch (status) {
-								case "Passed":
-									statusEnum = SubmissionLiteStatus.success;
-									break;
-								case "Not Passed":
-									statusEnum = SubmissionLiteStatus.danger;
-									break;
-								case "Passed (Quality < 100%)":
-									statusEnum = SubmissionLiteStatus.warning;
-									break;
-							}
-
-							// 4. Deadline
-							const deadline = new Date($(tds[5]).text());
-
-							// 5. Passed / Attempt
-							const passed = $($(tds[2]).find('a').first()).text();
-							const attempt = $($(tds[3]).find('a').first()).text();
-
-
-							problems.push({
-								id: this.getIDfromLink(link),
-								title: problemName.trim(),
-								rank: fasList,
-								displayStatus: statusEnum,
-								deadline: deadline,
-								passed: parseInt(passed),
-								attempt: parseInt(attempt)
-							});
-
+						)
+						.catch(r => {
+							reject(r);
 						});
+				});
+			};
 
-						course.problems = problems;
-						resolve(problems);
-					}
-				)
-				.catch(r => reject(r));
+			const runGetProblemByPage = (): Promise<Problem[] | undefined> => {
+				return getProblemsByPage(pageNumber)
+					.then((problems) => {
+						if (problems === undefined) {
+							course.problems = problems;
+							return Promise.resolve(problems);
+						}
+						pageNumber += 1;
+						problems = [
+							...(course.problems ?? []),
+							...problems
+						];
+						return runGetProblemByPage();
+
+					}).catch(r => {
+						return Promise.reject(r);
+					});
+			};
+
+			runGetProblemByPage().then(r => {
+				resolve(problems ?? []);
+			}).catch(r => {
+				reject(r);
+			});
 		});
 	}
 
@@ -457,8 +606,8 @@ export class EJudge {
 						_.each((i, e) => {
 							const E = $(e).find('td > pre');
 							strarray.push([
-								$(E[0]).text().trim(),
-								$(E[1]).text().trim()
+								$(E[0]).text(),
+								$(E[1]).text()
 							]);
 						});
 
@@ -476,8 +625,19 @@ export class EJudge {
 						__ = _.get(5);
 						if (__ !== undefined) {
 							const span = $(__).find("span");
-							if (span.hasClass('label-danger')){
-								problem.restictWord = $(span).text().trim().split(" ");
+							if (span.hasClass('label-danger')) {
+								const list = $(span).text().split(" ");
+								const words: string[] = [];
+								list.forEach((e) => {
+									e = e.trim();
+									e.split(",").forEach((f) => {
+										f = f.trim();
+										if (f.length > 0) {
+											words.push(f.trim());
+										}
+									});
+								});
+								problem.restictWord = words;
 							}
 						}
 

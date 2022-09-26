@@ -27,11 +27,11 @@ export function getLoginContent(webview: Webview, extensionUri: Uri, message: st
 	return `
 		<!DOCTYPE html>
 		<html lang="en">
-		  <head>
-		  		${getMetaAndScriptTabs(webview, extensionUri, "login.js")}
+			<head>
+				${getMetaAndScriptTabs(webview, extensionUri, "login.js")}
 				<title>Login</title>
-		  </head>
-		  <body id="webview-body">
+			</head>
+			<body id="webview-body">
 			<header>
 				<h1>Login</h1>
 			</header>
@@ -43,7 +43,7 @@ export function getLoginContent(webview: Webview, extensionUri: Uri, message: st
 				<vscode-button id="login-button">Sign in</vscode-button>
 				<vscode-button id="cancel-button" appearance="secondary">Cancel</vscode-button>
 			</section>
-		  </body>
+			</body>
 		</html>
 	  `;
 };
@@ -65,22 +65,23 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 	});
 
 	const restricts = (problem.restictWord ??= []).map(sample => {
-		return "<pre>" + sample + "</pre>";
+		return "<code>" + sample + "</code>";
 	});
 	const rest = (
-		restricts.length > 0 ? restricts.join(" "): "<i>No Restrict</i>"
+		restricts.length > 0 ? restricts.join(", "): "<i>No Restrict</i>"
 	);
 
 	return `
 		<!DOCTYPE html>
 		<html lang="en">
 		  <head>
-			  ${getMetaAndScriptTabs(webview, extensionUri, "problem.js")}
-			  <title>${problem.title ??= "<unfilled object>"}</title>
+				${getMetaAndScriptTabs(webview, extensionUri, "problem.js")}
+				<title>${problem.title ??= "<unfilled object>"}</title>
 		  </head>
 		  <body id="webview-body">
 			<header>
 				<h1>${problem.title ??= "<unfilled object>"}</h1>
+				<a href="https://ejudge.it.kmitl.ac.th/problem/${problem.id}">Problem page</a>
 				<base href="https://ejudge.it.kmitl.ac.th/">
 			</header>
 			<div class="problem-body">
@@ -101,8 +102,15 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 				<vscode-divider></vscode-divider>
 				<vscode-panels>
 					<vscode-panel-tab id="tab-1">Description</vscode-panel-tab>
-					<vscode-panel-tab id="tab-2">Specs & Samples</vscode-panel-tab>
-					<vscode-panel-view id="view-1">${problem.descRaw ??= ". . ."}</vscode-panel-view>
+					<vscode-panel-tab id="tab-2">
+						Specification & Samples
+						<vscode-badge appearance="secondary">${problem.samples.length}</vscode-badge>
+					</vscode-panel-tab>
+					<vscode-panel-view id="view-1">
+						<div class="problem-description">
+							${problem.descRaw ??= ". . ."}
+						</div>
+					</vscode-panel-view>
 					<vscode-panel-view id="view-2">
 						<div class="samples-body">
 							<h3>Specification</h3>
@@ -138,14 +146,16 @@ export function getLoadingContent(webview: Webview, extensionUri: Uri, title: st
 	return `
 		<!DOCTYPE html>
 		<html lang="en">
-		  <head>
-			  ${getMetaAndScriptTabs(webview, extensionUri, "problem.js")}
-			  <title>${title}</title>
-		  </head>
-		  <body id="webview-body">
-			<vscode-progress-ring></vscode-progress-ring>
-			Loading . . .
-		  </body>
+			<head>
+				${getMetaAndScriptTabs(webview, extensionUri, "")}
+				<title>${title}</title>
+		 	</head>
+			<body id="webview-body">
+				<div class="loading-box">
+					<vscode-progress-ring class="loading-box-center"></vscode-progress-ring>
+					<h3>Loading . . .</h3>
+				</div>
+			</body>
 		</html>
-	  `;
+	`;
 }

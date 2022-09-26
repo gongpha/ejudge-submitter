@@ -21,8 +21,18 @@
 				"category": "<e>judge"
 			},
 			{
+				"command": "ejudge-submitter.logout",
+				"title": "Logout from <e>judge",
+				"category": "<e>judge"
+			},
+			{
 				"command": "ejudge-submitter.openProblem",
 				"title": "Open a problem by ID",
+				"category": "<e>judge"
+			},
+			{
+				"command": "ejudge-submitter.manageAccount",
+				"title": "Manage an account",
 				"category": "<e>judge"
 			}
 		],

@@ -41,7 +41,14 @@ export class EJudgeCourseTreeProvider implements TreeDataProvider<ProblemItem | 
 		if (element === undefined) {
 			return Promise.resolve(this.cached);
 		}
-		return element.requestFullItem(this.ejudge);
+		return new Promise<TreeItem[]>((resolve, reject) => {
+			element.requestFullItem(this.ejudge).then(
+				r => resolve(r)
+			).catch(r => {
+				window.showInformationMessage(r);
+				resolve([]);
+			});
+		});
 	}
 
 	getParent() {
@@ -110,7 +117,6 @@ class CourseItem extends TreeItem {
 			ejudge.fillCourseProblems(this.course).then((problems) => {
 				resolve(problems.map((problem) => new ProblemItem(problem)));
 			}).catch((reason) => {
-				//window.showInformationMessage(reason);
 				reject(reason);
 			}); // sorry bro
 		});
