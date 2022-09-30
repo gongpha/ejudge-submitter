@@ -68,7 +68,7 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 		return "<code>" + sample + "</code>";
 	});
 	const rest = (
-		restricts.length > 0 ? restricts.join(", "): "<i>No Restrict</i>"
+		restricts.length > 0 ? restricts.join(", ") : "<i>No Restrict</i>"
 	);
 
 	return `
@@ -126,6 +126,15 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 							</vscode-data-grid>
 							<vscode-divider></vscode-divider>
 							<h3>Samples</h3>
+
+							<vscode-button id="test-sample-button" appearance="secondary">Test samples</vscode-button>
+							<div id="testing">
+								<vscode-progress-ring></vscode-progress-ring>
+								<span id="testing-text">Start Testings...</span>
+							</div>
+							<div id="test-result">
+							</div>
+
 							<vscode-data-grid aria-label="Basic">
 								<vscode-data-grid-row row-type="header">
 									<vscode-data-grid-cell cell-type="columnheader" grid-column="1">Input</vscode-data-grid-cell>

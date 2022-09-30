@@ -1,4 +1,4 @@
-// my dear, ES6 Promise is not cancelable, so I write this class to make it cancelable
+// my dear, ES6 Promise is not cancelable
 // i hate my life
 export default class CancelablePromise<T> {
     promise: Promise<T>;

@@ -1,7 +1,6 @@
 import CancelablePromise from './util/cancelable_promise';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
-import { resolve } from 'path';
 
 const URL_HEAD = 'https://ejudge.it.kmitl.ac.th';
 const URL_LOGIN_NEW = '/auth/login';
@@ -129,13 +128,6 @@ export interface Problem {
 	attempt?: number;
 
 	// other data will get setup here soon . . .
-}
-
-function getStringOrEnv(that: string): string {
-	if (that.startsWith('?')) {
-		return process.env[that.substring(1)] ?? '';
-	}
-	return that;
 }
 
 export class EJudge {

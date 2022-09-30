@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { EJudge, Problem, Authentication, Account } from './ejudge';
+import { EJudge, Problem, Authentication, Account, SubmissionCaseStatus } from './ejudge';
 import { getProblemContent, getLoginContent, getLoadingContent } from './webview';
 import { EJudgeCourseTreeProvider } from './provider';
 import CancelablePromise from './util/cancelable_promise';
+import { spawn } from 'child_process';
 
 const EXTENSION_NAME: String = "ejudge-submitter";
 
@@ -58,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
 			setAccountToStatusBar(undefined);
 
 			const after = (message: any) => {
-				let title : string = "@@@";
+				let title: string = "@@@";
 				if (message.command === "login") {
 					resolve({
 						username: message.username,
@@ -171,10 +172,110 @@ export function activate(context: vscode.ExtensionContext) {
 			panelLoading = undefined;
 			panel.title = `${problem.title} (#${problemID})`;
 			panel.webview.html = getProblemContent(panel.webview, context.extensionUri, problem);
+			panel.webview.onDidReceiveMessage((message) => {
+				if (message.command === "test_sample") {
+					const editors = vscode.window.visibleTextEditors;
+					if (editors.length === 0) {
+						vscode.window.showInformationMessage("No editor is active");
+						return;
+					}
+					const editor = editors[0];
+					const filePath = editor.document.fileName;
+					tryCases(problem, filePath, context.extensionUri).then(r => {
+						panel.webview.postMessage({
+							command:"done",
+							result: r
+						});
+					});
+				}
+			});
 		});
 	});
 	context.subscriptions.push(openProblem);
 }
+
+interface TestCaseResult {
+	status: SubmissionCaseStatus;
+	description: string;
+}
+
+interface TestResult {
+	results: TestCaseResult[];
+	passed: boolean;
+}
+
+function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri): Promise<TestResult> {
+	function test(idx: number): Promise<TestCaseResult> {
+		return new Promise<TestCaseResult>((resolve, reject) => {
+			const caseItem = problem.samples![idx];
+			const params = [(
+				vscode.Uri.joinPath(extensionUri, "src", "testsrc.py").fsPath
+			), filePath, caseItem[0], caseItem[1]];
+			let child = spawn('python', params);
+
+			child.stdout.on('data', function (data) {
+				const output = data.toString().trim();
+				let result: SubmissionCaseStatus;
+				let desc: string = "";
+				if (output === 't') {
+					result = SubmissionCaseStatus.passed;
+				} else if (output === 'f') {
+					result = SubmissionCaseStatus.incorrect;
+				} else {
+					result = SubmissionCaseStatus.error;
+					desc = output;
+				}
+
+				resolve({
+					status: result,
+					description: desc
+				});
+				return;
+			});
+		});
+	}
+
+	function testLoop(result: TestResult, samples: string[][]): Promise<any> {
+		return new Promise<any>((resolve, reject) => {
+			test(result.results.length).then(r => {
+				if (r.status !== SubmissionCaseStatus.passed) {
+					result.passed = false;
+				}
+				result.results.push(r);
+				if (result.results.length < samples.length) {
+					testLoop(result, samples).then(result => {
+						resolve(result);
+					}).catch(err => reject(err));
+				} else {
+					resolve(result);
+				}
+			}).catch(err => reject(err));
+		});
+	}
+
+	return new Promise<TestResult>((resolve, reject) => {
+		const samples = problem.samples;
+		if (samples === undefined) {
+			resolve({
+				results: [],
+				passed: true
+			});
+			return;
+		}
+		let idx = 0;
+
+		const result: TestResult = {
+			results: [],
+			passed: true
+		};
+
+		testLoop(result, samples).then(() => {
+			resolve(result);
+		}).catch((err) => reject(err));
+	});
+
+}
+
 
 export function deactivate() { }
 

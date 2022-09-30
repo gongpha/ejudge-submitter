@@ -26,11 +26,11 @@ code {
 
 .loading-box {
 	position: absolute;
-    top: 50%;
-    left: 50%;
-    width: auto;
-    height: auto;
-    transform: translate(-50%);
+	top: 50%;
+	left: 50%;
+	width: auto;
+	height: auto;
+	transform: translate(-50%);
 }
 
 .loading-box-center {
@@ -78,4 +78,13 @@ code {
 	white-space: nowrap;
 	vertical-align: baseline;
 	border-radius: 5px;
+}
+
+.tested-item {
+	margin: 10px;
+	padding: 5px;
+	border-radius: 5px;
+	color: black;
+	text-align: center;
+	font-weight: 700;
 }
