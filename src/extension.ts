@@ -83,7 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	student.onLoginSuccess = () => {
 		if (panel) {
-			if (panel.title === "Login") {
+			if (panel.title === "Login to <e>judge") {
 				panel.dispose(); // close the login panel
 			}
 		}

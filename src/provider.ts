@@ -45,7 +45,7 @@ export class EJudgeCourseTreeProvider implements TreeDataProvider<ProblemItem | 
 			element.requestFullItem(this.ejudge).then(
 				r => resolve(r)
 			).catch(r => {
-				window.showInformationMessage(r);
+				window.showErrorMessage(r);
 				resolve([]);
 			});
 		});

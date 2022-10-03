@@ -1,6 +1,7 @@
 import CancelablePromise from './util/cancelable_promise';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
+import { maxHeaderSize } from 'http';
 
 const URL_HEAD = 'https://ejudge.it.kmitl.ac.th';
 const URL_LOGIN_NEW = '/auth/login';
@@ -128,6 +129,12 @@ export interface Problem {
 	attempt?: number;
 
 	// other data will get setup here soon . . .
+}
+
+// Internals
+interface AlertBoxContent {
+	header: string;
+	content: string;
 }
 
 export class EJudge {
@@ -331,10 +338,20 @@ export class EJudge {
 		return content.length !== 0;
 	}
 
-
-
 	tryGetCheerOfURL(url: string, method: string = "GET", data: {} | undefined = undefined): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
+			this.tryGetResponseOfURL(url, method, data)
+				.then(
+					resp => {
+						resolve(cheerio.load(resp.data));
+					}
+				)
+				.catch(r => reject(r));
+		});
+	}
+
+	tryGetResponseOfURL(url: string, method: string = "GET", data: {} | undefined = undefined): Promise<AxiosResponse<any, any>> {
+		return new Promise<AxiosResponse<any, any>>((resolve, reject) => {
 			console.log("get cheer of " + url);
 			this.axiosInstance.request({
 				method: method,
@@ -354,13 +371,15 @@ export class EJudge {
 						const nextURL = new URL(next);
 						console.log("redirecting to " + nextURL.pathname);
 
-						this.tryGetCheerOfURL(nextURL.pathname + nextURL.search)
-							.then($ => resolve($))
+						this.tryGetResponseOfURL(nextURL.pathname + nextURL.search)
+							.then(resp => {
+								resolve(resp);
+							})
 							.catch(r => reject(r));
 						return;
 					}
 
-					resolve(cheerio.load(response.data));
+					resolve(response);
 				})
 				.catch(r => {
 					console.error(r);
@@ -392,6 +411,14 @@ export class EJudge {
 				.then(
 					$ => {
 						const courses: Course[] = [];
+
+						// Verify that the page is the course page
+						const headerText = this.getPageHeader($);
+
+						if (headerText !== "Course") {
+							this.rejectReasonByAlertBox($, reject);
+							return;
+						}
 
 						const table = $("table");
 						const rows = table.find("tbody").find("tr");
@@ -447,6 +474,34 @@ export class EJudge {
 		});
 	}
 
+	getPageHeader($: cheerio.CheerioAPI): string | undefined {
+		const header = $(".content-header > h1");
+		return header.contents().filter(function () {
+			return this.type === 'text';
+		}).text().trim();
+	}
+
+	getAlertMessage($: cheerio.CheerioAPI): AlertBoxContent | undefined {
+		const alertBox = $("body > .alert");
+		if (alertBox === undefined) {
+			return undefined;
+		}
+		return {
+			header: alertBox.find("strong").text().trim(),
+			content: alertBox.find("p").text().trim()
+		};
+	}
+
+	rejectReasonByAlertBox($: cheerio.CheerioAPI, reject: (reason?: any) => void): boolean {
+		var alertContent = this.getAlertMessage($);
+		if (alertContent === undefined) {
+			reject("Error occured with an unknown alert message.");
+			return false;
+		}
+		reject(alertContent.header + " : " + alertContent.content);
+		return true;
+	}
+
 	fillCourseProblems(course: Course) {
 		return new Promise<Problem[]>((resolve, reject) => {
 			// Enter the course first
@@ -462,8 +517,15 @@ export class EJudge {
 					this.tryGetCheerOfURLAndCheckAvailability(nextURL.pathname + nextURL.search)
 						.then(
 							$ => {
-								// $ is a problem page
+								// Verify that the page is the problem page
+								const headerText = this.getPageHeader($);
 
+								if (headerText !== "Problem") {
+									this.rejectReasonByAlertBox($, reject);
+									return;
+								}
+
+								// $ is a problem page
 
 								const tbody = $(".col-xs-12").find("table > tbody");
 								const rows = tbody.find("tr");
