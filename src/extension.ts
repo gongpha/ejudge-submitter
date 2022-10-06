@@ -67,11 +67,12 @@ export function activate(context: vscode.ExtensionContext) {
 						remember: message.remember,
 					});
 					title = "Logging in...";
+					panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, title);
 				} else if (message.command === "cancel") {
 					reject();
 					title = "Canceling...";
+					panel.dispose();
 				}
-				panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, title);
 			};
 			const panel = getWebview(context);
 			panel.title = "Login to <e>judge";
@@ -85,6 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
 		if (panel) {
 			if (panel.title === "Login to <e>judge") {
 				panel.dispose(); // close the login panel
+				provider.refresh();
 			}
 		}
 	};
@@ -92,6 +94,8 @@ export function activate(context: vscode.ExtensionContext) {
 	const loginCommand = () => {
 		student.attemptLogin().then(r => {
 			setMeToStatusBar();
+		}).catch(r => {
+			//vscode.window.showErrorMessage("Login failed : " + r);
 		}); // do nothing
 	};
 
@@ -99,6 +103,10 @@ export function activate(context: vscode.ExtensionContext) {
 		student.tryLogout().then(r => {
 			myAccount = undefined;
 			setAccountToStatusBar(myAccount);
+			if (panel !== undefined) {
+				panel.dispose();
+			}
+			provider.clear();
 		});
 	};
 
@@ -183,7 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
 					const filePath = editor.document.fileName;
 					tryCases(problem, filePath, context.extensionUri).then(r => {
 						panel.webview.postMessage({
-							command:"done",
+							command: "done",
 							result: r
 						});
 					});

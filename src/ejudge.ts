@@ -159,7 +159,7 @@ export class EJudge {
 		// don't use this if you prefer page content from the single request
 		// use tryGetCheerOfURLAndCheckAvailability instead (for internally usage)
 		return new Promise<boolean>((resolve, reject) => {
-			this.tryGetCheerOfURLAndCheckAvailability('/').then($ => {
+			this.tryGetCheerOfURLAndCheckAvailability(URL_COURSE).then($ => {
 				resolve(true);
 			}).catch(r => {
 				resolve(false);

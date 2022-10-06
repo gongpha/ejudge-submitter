@@ -33,6 +33,11 @@ export class EJudgeCourseTreeProvider implements TreeDataProvider<ProblemItem | 
 
 	}
 
+	clear(): void {
+		this.cached = [];
+		this._onDidChangeTreeData.fire();
+	}
+
 	getTreeItem(element: CourseItem | ProblemItem): TreeItem | Thenable<TreeItem> {
 		return element;
 	}
