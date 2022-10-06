@@ -24,8 +24,8 @@ window.addEventListener('message', event => {
 						if (element.status === 0) {
 							statusText = "Passed";
 							classStyle = "submission-passed";
-						} else if (element.status === 0) {
-							statusText = "Error";
+						} else if (element.status === 1) {
+							statusText = "Error : " + element.description;
 							classStyle = "submission-not-passed";
 						} else {
 							statusText = "Incorrect";

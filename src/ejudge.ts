@@ -648,9 +648,9 @@ export class EJudge {
 						_ = table.find("tbody > tr");
 
 						__ = _.get(0);
-						if (__ !== undefined) { problem.specIn = $(__).text().trim(); };
+						if (__ !== undefined) { problem.specIn = ($(__).html() ?? "").trim(); };
 						__ = _.get(1);
-						if (__ !== undefined) { problem.specOut = $(__).text().trim(); };
+						if (__ !== undefined) { problem.specOut = ($(__).html() ?? "").trim(); };
 
 						// Cases
 						table = $(rows[2]).find(".box-body > table");

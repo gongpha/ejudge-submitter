@@ -9,6 +9,7 @@ const EXTENSION_NAME: String = "ejudge-submitter";
 
 let panel: vscode.WebviewPanel | undefined = undefined;
 let panelLoading: CancelablePromise<any> | undefined;
+let problemDisp : vscode.Disposable | undefined = undefined;
 
 function getWebview(context: vscode.ExtensionContext): vscode.WebviewPanel {
 	if (!panel) {
@@ -180,7 +181,10 @@ export function activate(context: vscode.ExtensionContext) {
 			panelLoading = undefined;
 			panel.title = `${problem.title} (#${problemID})`;
 			panel.webview.html = getProblemContent(panel.webview, context.extensionUri, problem);
-			panel.webview.onDidReceiveMessage((message) => {
+			if (problemDisp !== undefined) {
+				problemDisp.dispose();
+			}
+			problemDisp = panel.webview.onDidReceiveMessage((message) => {
 				if (message.command === "test_sample") {
 					const editors = vscode.window.visibleTextEditors;
 					if (editors.length === 0) {
@@ -222,7 +226,7 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 			let child = spawn('python', params);
 
 			child.stdout.on('data', function (data) {
-				const output = data.toString().trim();
+				const output : string = data.toString().trim();
 				let result: SubmissionCaseStatus;
 				let desc: string = "";
 				if (output === 't') {
@@ -231,7 +235,10 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 					result = SubmissionCaseStatus.incorrect;
 				} else {
 					result = SubmissionCaseStatus.error;
-					desc = output;
+					desc = output.substring(1);
+					if (desc === "EOFError") {
+						desc += " (Not enough input)";
+					}
 				}
 
 				resolve({
