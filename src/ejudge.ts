@@ -660,8 +660,8 @@ export class EJudge {
 						_.each((i, e) => {
 							const E = $(e).find('td > pre');
 							strarray.push([
-								$(E[0]).text(),
-								$(E[1]).text()
+								$(E[0]).text().trim(),
+								$(E[1]).text().trim()
 							]);
 						});
 

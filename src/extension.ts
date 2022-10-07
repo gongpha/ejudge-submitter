@@ -222,7 +222,7 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 			const caseItem = problem.samples![idx];
 			const params = [(
 				vscode.Uri.joinPath(extensionUri, "src", "testsrc.py").fsPath
-			), filePath, caseItem[0], caseItem[1]];
+			), filePath, JSON.stringify(caseItem[0]).slice(1, -1), JSON.stringify(caseItem[1]).slice(1, -1)];
 			let child = spawn('python', params);
 
 			child.stdout.on('data', function (data) {

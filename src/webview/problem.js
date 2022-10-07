@@ -32,7 +32,7 @@ window.addEventListener('message', event => {
 							classStyle = "submission-not-passed";
 						}
 						
-						res += `<pre class="tested-item ${classStyle}">(#${i}) ${statusText}</pre>`;
+						res += `<pre class="tested-item ${classStyle}">(#${i + 1}) ${statusText}</pre>`;
 					});
 					return res;
 				})()}
@@ -53,13 +53,9 @@ function main() {
 	document.getElementById("test-sample-button").addEventListener("click", () => {
 		testing.hidden = false;
 		button.hidden = true;
+		testResult.innerHTML = "";
 		vscode.postMessage({
 			command: "test_sample",
-		});
-	});
-	document.getElementById("cancel-button").addEventListener("click", () => {
-		vscode.postMessage({
-			command: "cancel",
 		});
 	});
 }
