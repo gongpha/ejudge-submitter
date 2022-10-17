@@ -99,6 +99,7 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 						<vscode-data-grid-cell grid-column="2">${getSubmissionLiteHTML(problem.lastSubmission)}</vscode-data-grid-cell>
 					</vscode-data-grid-row>
 				</vscode-data-grid>
+				<vscode-button id="judge-button" disabled="true">Judge (No active file)</vscode-button>
 				<vscode-divider></vscode-divider>
 				<vscode-panels>
 					<vscode-panel-tab id="tab-1">Description</vscode-panel-tab>

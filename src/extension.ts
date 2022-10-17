@@ -4,12 +4,15 @@ import { getProblemContent, getLoginContent, getLoadingContent } from './webview
 import { EJudgeCourseTreeProvider } from './provider';
 import CancelablePromise from './util/cancelable_promise';
 import { spawn } from 'child_process';
+import path = require('path');
 
 const EXTENSION_NAME: String = "ejudge-submitter";
 
 let panel: vscode.WebviewPanel | undefined = undefined;
 let panelLoading: CancelablePromise<any> | undefined;
 let problemDisp : vscode.Disposable | undefined = undefined;
+
+let currentTextEditor: vscode.TextEditor | undefined = undefined;
 
 function getWebview(context: vscode.ExtensionContext): vscode.WebviewPanel {
 	if (!panel) {
@@ -113,6 +116,26 @@ export function activate(context: vscode.ExtensionContext) {
 
 	/* ----------------------------------- */
 
+	// when open another file
+	const dotdDisp = vscode.window.onDidChangeActiveTextEditor((e : vscode.TextEditor | undefined) => {
+		if (e === undefined) {
+			return;
+		}
+
+		currentTextEditor = e;
+		splashUpdateFile();
+	});
+
+	const splashUpdateFile = function() {
+		if (panel !== undefined && currentTextEditor !== undefined) {
+			panel.webview.postMessage({
+				command: "file_update",
+				filename: path.basename(currentTextEditor.document.fileName)
+			});
+		}
+	};
+
+	context.subscriptions.push(dotdDisp);
 
 	/* Login */
 	const login = vscode.commands.registerCommand(EXTENSION_NAME + '.login', loginCommand);
@@ -184,16 +207,14 @@ export function activate(context: vscode.ExtensionContext) {
 			if (problemDisp !== undefined) {
 				problemDisp.dispose();
 			}
+			splashUpdateFile();
 			problemDisp = panel.webview.onDidReceiveMessage((message) => {
 				if (message.command === "test_sample") {
-					const editors = vscode.window.visibleTextEditors;
-					if (editors.length === 0) {
+					if (currentTextEditor?.document?.fileName === undefined) {
 						vscode.window.showInformationMessage("No editor is active");
 						return;
 					}
-					const editor = editors[0];
-					const filePath = editor.document.fileName;
-					tryCases(problem, filePath, context.extensionUri).then(r => {
+					tryCases(problem, currentTextEditor.document.fileName, context.extensionUri).then(r => {
 						panel.webview.postMessage({
 							command: "done",
 							result: r
@@ -201,6 +222,7 @@ export function activate(context: vscode.ExtensionContext) {
 					});
 				}
 			});
+			context.subscriptions.push(problemDisp);
 		});
 	});
 	context.subscriptions.push(openProblem);
@@ -214,6 +236,7 @@ interface TestCaseResult {
 interface TestResult {
 	results: TestCaseResult[];
 	passed: boolean;
+	filename: string;
 }
 
 function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri): Promise<TestResult> {
@@ -269,11 +292,13 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 	}
 
 	return new Promise<TestResult>((resolve, reject) => {
+		const filename = path.basename(filePath);
 		const samples = problem.samples;
 		if (samples === undefined) {
 			resolve({
 				results: [],
-				passed: true
+				passed: true,
+				filename: filename
 			});
 			return;
 		}
@@ -281,7 +306,8 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 
 		const result: TestResult = {
 			results: [],
-			passed: true
+			passed: true,
+			filename: filename
 		};
 
 		testLoop(result, samples).then(() => {
