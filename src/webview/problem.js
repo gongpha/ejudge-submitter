@@ -4,6 +4,141 @@ window.addEventListener("load", main);
 
 let button, testing, testResult, judgeButton;
 
+function renderResult(results, fromServer = false) {
+	let res = "";
+
+	if (fromServer) {
+		res = "<vscode-data-grid aria-label=\"Basic\">";
+	}
+
+	results.forEach((element, i) => {
+		let classStyle = "";
+		let statusText = "";
+
+		
+
+		if (fromServer) {
+			let col3 = element.timeString === undefined ? "" : `
+				<vscode-data-grid-cell grid-column="3">
+					<pre class="submission-lite submission-time">${element.timeString}</pre>
+				</vscode-data-grid-cell>
+			`;
+			if (element.status === 0) {
+				statusText = "Passed";
+				classStyle = "submission-passed";
+			} else if (element.status === 1) {
+				statusText = "Error";
+				classStyle = "submission-error";
+				col3 = `
+					<vscode-data-grid-cell grid-column="3">
+						<pre class="submission-lite submission-time">${element.desc}</pre>
+					</vscode-data-grid-cell>
+				`;
+			} else if (element.status === 2) {
+				statusText = "Incorrect";
+				classStyle = "submission-not-passed";
+			} else if (element.status === 3) {
+				statusText = "Timeout";
+				classStyle = "submission-timeout";
+			} else {
+				statusText = "Memory Error";
+				classStyle = "submission-error";
+			}
+
+			res += `
+				<vscode-data-grid-row>
+					<vscode-data-grid-cell grid-column="1">${element.caseHeader}</vscode-data-grid-cell>
+					<vscode-data-grid-cell grid-column="2"><pre class="submission-lite ${classStyle}">${statusText}</pre></vscode-data-grid-cell>
+					${col3}
+				</vscode-data-grid-row>
+			`;
+		} else {
+			if (element.status === 0) {
+				statusText = "Passed";
+				classStyle = "submission-passed";
+			} else if (element.status === 1) {
+				statusText = "Error : " + element.description;
+				classStyle = "submission-error";
+			} else {
+				statusText = "Incorrect";
+				classStyle = "submission-not-passed";
+			}
+	
+			res += `<pre class="tested-item ${classStyle}">(#${i + 1}) ${statusText}</pre>`;
+		}
+	});
+	if (fromServer) {
+		res += "</vscode-data-grid>";
+	}
+	return res;
+}
+
+function renderSubmission(submission) {
+	let quality = "";
+	let summary = "";
+
+	if (submission.quality !== undefined) {
+		const is100percent = submission.quality.percent === 100;
+		quality = `
+		<vscode-data-grid-row>
+			<vscode-data-grid-cell grid-column="1">Quality</vscode-data-grid-cell>
+			<vscode-data-grid-cell grid-column="2"><pre class="submission-lite ${
+				is100percent ? "submission-quality-100" : "submission-quality-under-100"
+			}">${submission.quality.percent}%</pre></vscode-data-grid-cell>
+		</vscode-data-grid-row>
+		`;
+		
+		if (!is100percent) {
+			summary += `
+			<vscode-divider></vscode-divider>
+			<h3>Summary</h3>
+			<pre class=" submission-summary-highlight submission-quality-under-100">${submission.quality.summary}</pre>
+			`;
+		}
+	}
+
+	// count items
+
+	let badgeCorrect = 0;
+	let badgeIncorrect = 0;
+	submission.cases.forEach((element, i) => {
+		if (element.status === 0) {
+			badgeCorrect++;
+		} else {
+			badgeIncorrect++;
+		}
+	});
+
+	submissionBadgePassed.innerText = badgeCorrect.toString();
+	submissionBadgeIncorrect.innerText = badgeIncorrect.toString();
+
+	return `
+	<vscode-data-grid aria-label="Basic">
+		<vscode-data-grid-row>
+			<vscode-data-grid-cell grid-column="1">ID</vscode-data-grid-cell>
+			<vscode-data-grid-cell grid-column="2">${submission.id}</vscode-data-grid-cell>
+		</vscode-data-grid-row>
+		${quality}
+		<vscode-data-grid-row>
+			<vscode-data-grid-cell grid-column="1">Summary Score</vscode-data-grid-cell>
+			<vscode-data-grid-cell grid-column="2">${submission.summaryScore}</vscode-data-grid-cell>
+		</vscode-data-grid-row>
+		<vscode-data-grid-row>
+			<vscode-data-grid-cell grid-column="1">Timestamp</vscode-data-grid-cell>
+			<vscode-data-grid-cell grid-column="2">${submission.timestamp}</vscode-data-grid-cell>
+		</vscode-data-grid-row>
+	</vscode-data-grid>
+	${summary}
+	<vscode-divider></vscode-divider>
+	${renderResult(submission.cases, true)}
+	`;
+}
+
+let filename = undefined;
+let currentSubmission = undefined;
+let submission = undefined;
+let knownFinished = false;
+
 window.addEventListener('message', event => {
 	const message = event.data; // The JSON data our extension sent
 
@@ -16,63 +151,92 @@ window.addEventListener('message', event => {
 				(${message.result.filename})
 				${(message.result.passed) ? "Passed !" : "Failed !"}
 				<br/>
-				${(() => {
-					let res = "";
-					message.result.results.forEach((element, i) => {
-						let classStyle = "";
-						let statusText = "";
-
-						if (element.status === 0) {
-							statusText = "Passed";
-							classStyle = "submission-passed";
-						} else if (element.status === 1) {
-							statusText = "Error : " + element.description;
-							classStyle = "submission-not-passed";
-						} else {
-							statusText = "Incorrect";
-							classStyle = "submission-not-passed";
-						}
-
-						res += `<pre class="tested-item ${classStyle}">(#${i + 1}) ${statusText}</pre>`;
-					});
-					return res;
-				})()}
+				${(() => renderResult(message.result.results))()}
 			`;
 
 			break;
 		case 'file_update':
-			updateFile(message.filename);
+			filename = message.filename;
+			currentSubmission = message.currentSubmission;
+			update();
+			break;
+		case 'submission_update':
+			submission = message.submission;
+			knownFinished = message.knownFinished;
+			update();
 			break;
 	}
 });
 
-function updateFile(filename) {
-	console.log(filename);
-	if (filename === undefined) {
-		judgeButton.disabled = true;
-		judgeButton.innerHTML = 'Judge (No active file)';
-		button.disabled = true;
-		button.innerHTML = 'Test sample (No active file)';
+function update() {
+	let htmlSubmission = "Press \"Judge\" to judge this problem";
+
+	let testText = "Test Sample";
+	let judgeText = "Judge (...)";
+	let textDisabled = true;
+	let judgeDisabled = true;
+	let refreshHidden = true;
+
+	if (currentSubmission) {
+		if (currentSubmission.problemID === parseInt(idLink.innerHTML)) {
+			// match
+			judgeText = 'Judging';
+			refreshHidden = false;
+			htmlSubmission = "Currently judging" + `
+				<vscode-progress-ring></vscode-progress-ring>
+			`;
+		} else {
+			judgeText = 'Judge (Busying)';
+			htmlSubmission = "Currently judging another problem.";
+		}
 	} else {
-		judgeButton.disabled = false;
-		judgeButton.innerHTML = `Judge (${filename})`;
-		button.disabled = false;
-		button.innerHTML = `Test sample (${filename})`;
+		if (filename === undefined) {
+			judgeText = 'Judge (No active file)';
+		} else {
+			judgeDisabled = false;
+			judgeText = `Judge (${filename})`;
+		}
 	}
+
+	if (filename === undefined) {
+		testText = 'Test Sample (No active file)';
+	}
+	else {
+		textDisabled = false;
+		testText = `Test Sample (${filename})`;
+	}
+
+	button.innerHTML = testText;
+	button.disabled = textDisabled;
+	judgeButton.innerHTML = judgeText;
+	judgeButton.disabled = judgeDisabled;
+	submissionForceRefresh.hidden = refreshHidden;
+
+	if (submission) {
+		htmlSubmission += renderSubmission(submission);
+	}
+
+	submissionsView.innerHTML = htmlSubmission;
 }
+let submissionBadgePassed, submissionBadgeIncorrect, submissionsView;
+let submissionForceRefresh, idLink;
 
 function main() {
 	button = document.getElementById("test-sample-button");
 	testing = document.getElementById("testing");
 	testResult = document.getElementById("test-result");
 	judgeButton = document.getElementById("judge-button");
-
-	updateFile(undefined);
+	submissionBadgePassed = document.getElementById("submission-badge-passed");
+	submissionBadgeIncorrect = document.getElementById("submission-badge-incorrect");
+	submissionForceRefresh = document.getElementById("submission-force-refresh");
+	submissionsView = document.getElementById("submissions-view");
+	idLink = document.getElementById("id-link");
 
 	testing.hidden = true;
+	update();
 
 
-	document.getElementById("test-sample-button").addEventListener("click", () => {
+	button.addEventListener("click", () => {
 		testing.hidden = false;
 		button.hidden = true;
 		testResult.innerHTML = "";
@@ -81,7 +245,15 @@ function main() {
 		});
 	});
 
-	document.getElementById("judge-button").addEventListener("click", () => {
+	judgeButton.addEventListener("click", () => {
+		vscode.postMessage({
+			command: "judge",
+		});
+	});
 
+	submissionForceRefresh.addEventListener("click", () => {
+		vscode.postMessage({
+			command: "force_refresh",
+		});
 	});
 }

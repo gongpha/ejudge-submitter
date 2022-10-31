@@ -81,7 +81,7 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 		  <body id="webview-body">
 			<header>
 				<h1>${problem.title ??= "<unfilled object>"}</h1>
-				<a href="https://ejudge.it.kmitl.ac.th/problem/${problem.id}">Problem page</a>
+				Problem Page : <a id="id-link" href="https://ejudge.it.kmitl.ac.th/problem/${problem.id}">${problem.id}</a>
 				<base href="https://ejudge.it.kmitl.ac.th/">
 			</header>
 			<div class="problem-body">
@@ -106,6 +106,11 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 					<vscode-panel-tab id="tab-2">
 						Specification & Samples
 						<vscode-badge appearance="secondary">${problem.samples.length}</vscode-badge>
+					</vscode-panel-tab>
+					<vscode-panel-tab id="tab-3">
+						Submissions&nbsp;
+						<pre class="submission-lite submission-passed" id="submission-badge-passed">...</pre>&nbsp;
+						<pre class="submission-lite submission-not-passed" id="submission-badge-incorrect">...</pre>
 					</vscode-panel-tab>
 					<vscode-panel-view id="view-1">
 						<div class="problem-description">
@@ -143,6 +148,12 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 								</vscode-data-grid-row>
 								${samples.join('')}
 							</vscode-data-grid>
+						</div>
+					</vscode-panel-view>
+					<vscode-panel-view id="view-3">
+					<vscode-button id="submission-force-refresh" hidden appearance="secondary">Force Refresh</vscode-button>
+						<div id="submissions-view">
+							<vscode-progress-ring></vscode-progress-ring>
 						</div>
 					</vscode-panel-view>
 				</vscode-panels>

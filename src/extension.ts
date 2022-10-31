@@ -1,6 +1,12 @@
 import * as vscode from 'vscode';
-import { EJudge, Problem, Authentication, Account, SubmissionCaseStatus } from './ejudge';
-import { getProblemContent, getLoginContent, getLoadingContent } from './webview';
+import {
+	EJudge, Problem, Authentication, Account, SubmissionCaseStatus,
+	Submission
+} from './ejudge';
+import {
+	getProblemContent, getLoginContent, getLoadingContent,
+	getSubmissionLiteHTML
+} from './webview';
 import { EJudgeCourseTreeProvider } from './provider';
 import CancelablePromise from './util/cancelable_promise';
 import { spawn } from 'child_process';
@@ -9,10 +15,33 @@ import path = require('path');
 const EXTENSION_NAME: String = "ejudge-submitter";
 
 let panel: vscode.WebviewPanel | undefined = undefined;
+//let panelSubmission: vscode.WebviewPanel | undefined = undefined;
+
 let panelLoading: CancelablePromise<any> | undefined;
-let problemDisp : vscode.Disposable | undefined = undefined;
+let problemDisp: vscode.Disposable | undefined = undefined;
 
 let currentTextEditor: vscode.TextEditor | undefined = undefined;
+
+let currentSubmission: Submission | undefined;
+
+function closeAllPanel() {
+	panel?.dispose();
+}
+
+function setCurrentSubmission(submission: Submission | undefined, knownFinished : boolean = false) {
+	currentSubmission = submission;
+	updateSubmissionToPanel(currentSubmission, knownFinished);
+}
+
+function updateSubmissionToPanel(submission : Submission | undefined, knownFinished : boolean = false) {
+	if (panel) {
+		panel.webview.postMessage({
+			command: "submission_update",
+			submission: submission,
+			knownFinished: knownFinished
+		});
+	}
+}
 
 function getWebview(context: vscode.ExtensionContext): vscode.WebviewPanel {
 	if (!panel) {
@@ -42,19 +71,23 @@ export function activate(context: vscode.ExtensionContext) {
 	const setMeToStatusBar = () => {
 		student.getMyAccountOrGuest().then(account => {
 			myAccount = account;
-			setAccountToStatusBar(myAccount);
+			setAccountToStatusBar();
 		}).catch(r => {
 			vscode.window.showErrorMessage("Login failed : " + r);
 		});
 	};
 
-	const setAccountToStatusBar = (account: Account | undefined) => {
+	const setAccountToStatusBar = (account: Account | undefined = myAccount) => {
 		if (account === undefined) {
 			item.text = "$(code)$(accounts-view-bar-icon) Guest";
 			item.tooltip = "Logging as Guest";
 		} else {
 			item.text = `$(code)$(accounts-view-bar-icon) ${account.username}`;
 			item.tooltip = `Logging as ${account.fullname} (${account.username})`;
+		}
+
+		if (currentSubmission !== undefined) {
+			item.tooltip += ` (Pending Submission: ${currentSubmission.id})`;
 		}
 	};
 
@@ -65,13 +98,13 @@ export function activate(context: vscode.ExtensionContext) {
 			const after = (message: any) => {
 				let title: string = "@@@";
 				if (message.command === "login") {
+					title = "Logging in...";
+					panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, title);
 					resolve({
 						username: message.username,
 						password: message.password,
 						remember: message.remember,
 					});
-					title = "Logging in...";
-					panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, title);
 				} else if (message.command === "cancel") {
 					reject();
 					title = "Canceling...";
@@ -88,10 +121,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	student.onLoginSuccess = () => {
 		if (panel) {
-			if (panel.title === "Login to <e>judge") {
-				panel.dispose(); // close the login panel
-				provider.refresh();
-			}
+			panel.dispose(); // close the login panel
+			provider.refresh(); // refresh the tree
 		}
 	};
 
@@ -106,10 +137,8 @@ export function activate(context: vscode.ExtensionContext) {
 	const logoutCommand = () => {
 		student.tryLogout().then(r => {
 			myAccount = undefined;
-			setAccountToStatusBar(myAccount);
-			if (panel !== undefined) {
-				panel.dispose();
-			}
+			setAccountToStatusBar();
+			closeAllPanel();
 			provider.clear();
 		});
 	};
@@ -117,7 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
 	/* ----------------------------------- */
 
 	// when open another file
-	const dotdDisp = vscode.window.onDidChangeActiveTextEditor((e : vscode.TextEditor | undefined) => {
+	const dotdDisp = vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor | undefined) => {
 		if (e === undefined) {
 			return;
 		}
@@ -126,11 +155,12 @@ export function activate(context: vscode.ExtensionContext) {
 		splashUpdateFile();
 	});
 
-	const splashUpdateFile = function() {
-		if (panel !== undefined && currentTextEditor !== undefined) {
+	const splashUpdateFile = function () {
+		if (panel) {
 			panel.webview.postMessage({
 				command: "file_update",
-				filename: path.basename(currentTextEditor.document.fileName)
+				filename: currentTextEditor ? path.basename(currentTextEditor.document.fileName) : undefined,
+				currentSubmission: currentSubmission
 			});
 		}
 	};
@@ -141,7 +171,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const login = vscode.commands.registerCommand(EXTENSION_NAME + '.login', loginCommand);
 	context.subscriptions.push(login);
 	const logout = vscode.commands.registerCommand(EXTENSION_NAME + '.logout', logoutCommand);
-	context.subscriptions.push(login);
+	context.subscriptions.push(logout);
 
 	/* Status bar */
 	const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
@@ -191,6 +221,20 @@ export function activate(context: vscode.ExtensionContext) {
 
 	provider.refresh();
 
+	// const openSubmission = vscode.commands.registerCommand(EXTENSION_NAME + '.openSubmission', (submissionID: number) => {
+	// 	const panel = getWebview(context);
+	// 	panel.title = `Submission #${submissionID}`;
+	// 	panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, panel.title);
+	// 	if (panelLoading !== undefined) {
+	// 		panelLoading.cancel();
+	// 	}
+	// 	panelLoading = new CancelablePromise<Submission>(student.getSubmission(submissionID));
+	// 	panelLoading.promise.then((submission) => {
+	// 		panelLoading = undefined;
+	// 		panel.webview.html = getSubmissionContent(panel.webview, context.extensionUri, submission);
+	// 	});
+	// });
+
 	const openProblem = vscode.commands.registerCommand(EXTENSION_NAME + '.openProblem', (problemID: number) => {
 		const panel = getWebview(context);
 		panel.title = `Problem #${problemID}`;
@@ -200,25 +244,63 @@ export function activate(context: vscode.ExtensionContext) {
 			panelLoading.cancel();
 		}
 		panelLoading = new CancelablePromise<Problem>(student.getProblem(problemID));
-		panelLoading.promise.then((problem) => {
+		panelLoading.promise.then((problem : Problem) => {
 			panelLoading = undefined;
 			panel.title = `${problem.title} (#${problemID})`;
 			panel.webview.html = getProblemContent(panel.webview, context.extensionUri, problem);
 			if (problemDisp !== undefined) {
 				problemDisp.dispose();
 			}
+
+			// load last submission of the problem
+			if (problem.lastSubmission) {
+				student.getSubmission(problem.lastSubmission.id).then((submission) => {
+					updateSubmissionToPanel(submission);
+				});
+			}
+
 			splashUpdateFile();
+
 			problemDisp = panel.webview.onDidReceiveMessage((message) => {
+
+				if (currentTextEditor?.document?.fileName === undefined) {
+					vscode.window.showInformationMessage("No editor is active");
+					return;
+				}
 				if (message.command === "test_sample") {
-					if (currentTextEditor?.document?.fileName === undefined) {
-						vscode.window.showInformationMessage("No editor is active");
-						return;
-					}
 					tryCases(problem, currentTextEditor.document.fileName, context.extensionUri).then(r => {
 						panel.webview.postMessage({
 							command: "done",
 							result: r
 						});
+					});
+				} else if (message.command === "judge") {
+					student.sendJudge(problem,
+						currentTextEditor.document.uri.fsPath
+					).then(r => {
+						setCurrentSubmission(r);
+					});
+				} else if (message.command === "force_refresh") {
+					if (currentSubmission === undefined) {
+						vscode.window.showErrorMessage("No submission to refresh");
+						return;
+					}
+					student.getSubmission(currentSubmission.id).then(r => {
+						// compare
+						let finished = false;
+						if (r.cases?.length === 0) {
+							// still being judged. continue
+							finished = false;
+						} else if (r.cases?.length === currentSubmission?.cases?.length) {
+							// FINISHED
+							finished = true;
+						}
+						
+						if (finished) {
+							setCurrentSubmission(r, true);
+						} else {
+							setCurrentSubmission(r);
+						}
 					});
 				}
 			});
@@ -249,7 +331,7 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 			let child = spawn('python', params);
 
 			child.stdout.on('data', function (data) {
-				const output : string = data.toString().trim();
+				const output: string = data.toString().trim();
 				let result: SubmissionCaseStatus;
 				let desc: string = "";
 				if (output === 't') {

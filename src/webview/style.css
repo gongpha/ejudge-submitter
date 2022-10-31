@@ -50,7 +50,7 @@ code {
 }
 
 .samples-cell {
-	border: 1px solid #333;
+	border: 1px solid #555;
 	border-radius: 9px;
 	margin: 4px;
 }
@@ -59,12 +59,33 @@ code {
 	margin-right: 10px;
 }
 
+.submission-quality-100 {
+	background-image: linear-gradient(to left, #28ec28, #51f2c5);
+}
+
+.submission-quality-under-100 {
+	background-image: linear-gradient(to left, #ffd518, #fffc5a);
+}
+
 .submission-passed {
 	background-image: linear-gradient(to left, #28ec28, #51f2c5);
 }
 
 .submission-not-passed {
-	background-image: linear-gradient(to left, #d9534f, #ff5aed);
+	background-image: linear-gradient(to left, #d9534f, #ff5a9f);
+}
+
+.submission-error {
+	background-image: linear-gradient(to left, #d9534f, #fffc5a);
+}
+
+.submission-timeout {
+	background-image: linear-gradient(to left, #d9534f, #696969);
+}
+
+.submission-time {
+	background-color:#555;
+	color: gainsboro;
 }
 
 .submission-lite {
@@ -87,4 +108,39 @@ code {
 	color: black;
 	text-align: center;
 	font-weight: 700;
+}
+
+/* #submission-badge-passed {
+	background-color: #5cb85c;
+	color: black;
+}
+
+#submission-badge-incorrect {
+	background-color: #d9534f;
+	color: black;
+} */
+
+.submission-item {
+	border-radius: 9px;
+	margin: 4px;
+}
+
+.submission-item-pending {
+	border: 2px dashed #333;
+}
+
+.submission-item-passed {
+	border: 2px solid #5cb85c;
+}
+
+.submission-item-incorrect {
+	border: 2px solid #d9534f;
+}
+
+.submission-summary-highlight {
+	padding: 3px 15px 3px;
+	font-weight: 700;
+	line-height: 1;
+	color: #000 !important;
+	border-radius: 5px;
 }

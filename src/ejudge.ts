@@ -1,7 +1,8 @@
 import CancelablePromise from './util/cancelable_promise';
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestHeaders, AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
-import { maxHeaderSize } from 'http';
+import * as FormData from 'form-data';
+import * as fs from 'fs';
 
 const URL_HEAD = 'https://ejudge.it.kmitl.ac.th';
 const URL_LOGIN_NEW = '/auth/login';
@@ -51,7 +52,6 @@ export interface Account {
 }
 
 export interface Quality {
-	of: Submission;
 	percent: number; // 0-100
 	summary: string;
 }
@@ -59,32 +59,35 @@ export interface Quality {
 export enum SubmissionCaseStatus {
 	passed,
 	error,
-	incorrect
+	incorrect,
+
+	timeout,
+	memoryError,
+
 }
 
 export interface SubmissionCase {
-	of: Submission;
-	caseIndex: number;
-	caseNumber: number;
-	status: SubmissionCaseStatus;
-	desc: string;
-	time: number; // sec
+	caseHeader: string;
+	//caseNumber: number;
+	status?: SubmissionCaseStatus;
+	desc?: string;
+	timeString: string;
 }
 
 export interface Submission {
 	id: number;
+	problemID: number;
 
-	problem?: Problem;
-	from?: Account;
-	language?: string;
-	correctnessScore?: number;
-	bonusScore?: number;
+	//from?: Account;
+	//language?: string;
+	//correctnessScore?: number;
+	//bonusScore?: number;
 	quality?: Quality;
 	summaryScore?: number;
 	timestamp?: Date;
 
 	cases?: SubmissionCase[];
-	code?: string;
+	//code?: string;
 }
 
 export enum SubmissionLiteStatus {
@@ -128,6 +131,8 @@ export interface Problem {
 	passed?: number;
 	attempt?: number;
 
+	uploadToken?: string;
+
 	// other data will get setup here soon . . .
 }
 
@@ -135,6 +140,13 @@ export interface Problem {
 interface AlertBoxContent {
 	header: string;
 	content: string;
+}
+
+interface RequestParams {
+	url: string;
+	method?: string;
+	data?: {} | undefined;
+	customHeaders?: AxiosRequestHeaders;
 }
 
 export class EJudge {
@@ -169,7 +181,7 @@ export class EJudge {
 
 	tryLogout(): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			this.tryGetCheerOfURL(URL_LOGOUT).then($ => {
+			this.tryGetCheerOfURL({ url: URL_LOGOUT }).then($ => {
 				resolve(this.isCheerLoginPage($));
 			}).catch(r => reject(r));
 		});
@@ -177,7 +189,7 @@ export class EJudge {
 
 	getMyAccountOrGuest(): Promise<Account | undefined> {
 		return new Promise<Account | undefined>((resolve, reject) => {
-			this.tryGetCheerOfURL(URL_ACCOUNT + "me").then($ => {
+			this.tryGetCheerOfURL({ url: URL_ACCOUNT + "me" }).then($ => {
 				if (this.isCheerLoginPage($)) {
 					resolve(undefined);
 				} else {
@@ -308,7 +320,11 @@ export class EJudge {
 				const nextURL = new URL(URL_HEAD + URL_LOGIN);
 				nextURL.searchParams.set('next', next ?? '');
 
-				this.tryGetCheerOfURL(nextURL.pathname + nextURL.search, "POST", data)
+				this.tryGetCheerOfURL({
+					url: nextURL.pathname + nextURL.search,
+					method: "POST",
+					data: data
+				})
 					.then(
 						$ => {
 							if (this.isCheerLoginPage($)) {
@@ -338,9 +354,9 @@ export class EJudge {
 		return content.length !== 0;
 	}
 
-	tryGetCheerOfURL(url: string, method: string = "GET", data: {} | undefined = undefined): Promise<cheerio.CheerioAPI> {
+	tryGetCheerOfURL(params: RequestParams): Promise<cheerio.CheerioAPI> {
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
-			this.tryGetResponseOfURL(url, method, data)
+			this.tryGetResponseOfURL(params)
 				.then(
 					resp => {
 						resolve(cheerio.load(resp.data));
@@ -350,15 +366,18 @@ export class EJudge {
 		});
 	}
 
-	tryGetResponseOfURL(url: string, method: string = "GET", data: {} | undefined = undefined): Promise<AxiosResponse<any, any>> {
+	tryGetResponseOfURL(
+		params: RequestParams
+	): Promise<AxiosResponse<any, any>> {
 		return new Promise<AxiosResponse<any, any>>((resolve, reject) => {
-			console.log("get cheer of " + url);
+			console.log("get cheer of " + params.url);
 			this.axiosInstance.request({
-				method: method,
-				data: data,
-				url: url,
+				method: params.method,
+				data: params.data,
+				url: params.url,
 				headers: {
-					cookie: this.cookies.join(';'),
+					...{ cookie: this.cookies.join(';') },
+					...params.customHeaders
 				}
 			})
 				.then(response => {
@@ -371,7 +390,9 @@ export class EJudge {
 						const nextURL = new URL(next);
 						console.log("redirecting to " + nextURL.pathname);
 
-						this.tryGetResponseOfURL(nextURL.pathname + nextURL.search)
+						this.tryGetResponseOfURL({
+							url: nextURL.pathname + nextURL.search,
+						})
 							.then(resp => {
 								resolve(resp);
 							})
@@ -383,16 +404,22 @@ export class EJudge {
 				})
 				.catch(r => {
 					console.error(r);
-					reject("Getting HTML Failed : " + url);
+					reject("Getting HTML Failed : " + params.url);
 				});
 		});
 	}
 
-	tryGetCheerOfURLAndCheckAvailability(url: string): Promise<cheerio.CheerioAPI> {
+	tryGetCheerOfURLAndCheckAvailability(paramsOrURL: RequestParams | string): Promise<cheerio.CheerioAPI> {
+		let params: RequestParams;
+		if (typeof paramsOrURL === "string") {
+			params = {
+				url: paramsOrURL,
+			};
+		}
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
-			this.tryGetCheerOfURL(url).then($ => {
+			this.tryGetCheerOfURL(params).then($ => {
 				if (this.isCheerLoginPage($)) {
-					this.loginWithCheer($, url).then($ => resolve($))
+					this.loginWithCheer($, params.url).then($ => resolve($))
 						.catch(r => reject(r));
 				} else {
 					resolve($);
@@ -720,10 +747,173 @@ export class EJudge {
 							}
 						}
 
+						// Upload field
+						_ = $(rows[2]).find('.col-xs-12 > .box > .box-body > form');
+						const uploadToken = _.find($("input[name=_token]")).attr('value');
+
+						if (uploadToken === undefined) {
+							reject("Cannot get a upload token");
+							return;
+						}
+
+						problem.uploadToken = uploadToken!;
+
 						resolve(problem);
 					}
 				)
 				.catch(r => reject(r));
+		});
+	}
+
+	getSubmission(submissionID: number): Promise<Submission> {
+		return new Promise<Submission>((resolve, reject) => {
+			this.tryGetCheerOfURLAndCheckAvailability(URL_PROBLEM + `/submission/${submissionID}`)
+				.then(
+					$ => {
+						const submission: Submission | string = this.getSubmissionFromCheer($);
+						if (typeof submission === 'string') {
+							reject(submission);
+							return;
+						}
+						resolve(submission);
+					});
+		});
+	}
+
+	getSubmissionFromCheer($: cheerio.CheerioAPI): Submission | string {
+		let submissionID: number | undefined;
+		let quality: Quality | undefined;
+		let summaryScore: number | undefined;
+		let date: Date | undefined;
+
+		const row = $(".content > .row");
+
+		const table = $(row[0]).find("table");
+		let trs = table.find("tbody > tr");
+		//const strarray: string[][] = [];
+
+		let pending = trs.length === 8;
+
+		let E = $(trs[0]).find('td')[1];
+		submissionID = parseInt($(E).find('h4').text().substring(1));
+
+		if (submissionID === undefined) {
+			return "Failed to get submission : Cannot get submission ID";
+		}
+
+		E = $(trs[1]).find('td')[1];
+		const url = $(E).find('h4').find('a').attr('href');
+		if (url === undefined) {
+			return "Failed to get submission : Cannot get a problem URL";
+		}
+		const problemID = this.getIDfromLink(url);
+
+		E = $(trs[pending ? 6 : 7]).find('td')[1];
+		summaryScore = parseFloat($(E).find('h4').text().split(' ')[0]);
+
+		E = $(trs[pending ? 7 : 8]).find('td')[1];
+		date = new Date($(E).find('h4').text().trim());
+
+		if (!pending) {
+			const e = $($(trs[6]).find('td')[1]);
+			const hhhh = e.find('h4');
+
+			const qualityPercent = parseFloat(hhhh.contents().filter(function () {
+				return this.type === 'text';
+			}).text().trim().slice(0, -1));
+
+			const qualityCheck = e.find('#qctext > .modal-dialog > .modal-content > .modal-body > pre').text();
+
+			quality = {
+				percent: qualityPercent,
+				summary: qualityCheck
+			};
+		}
+
+		const cases: SubmissionCase[] = [];
+
+		const tbody = $(row[1]).find("tbody");
+		trs = $(tbody).find("tr");
+		trs.each((i, e) => {
+			const tds = $(e).find('td');
+
+			const tds0 = $(tds[0]);
+			const tds1 = $(tds[1]);
+
+			const rawCaseHead = tds0.text().trim();
+
+			if (rawCaseHead === "") {
+				// EXCEPTION CLASSES !!!
+				const exception = tds1.find('pre').text().trim();
+				if (cases.length === 0) {
+					// This should not happen :/
+					return;
+				}
+				cases[cases.length - 1].desc = exception;
+				return;
+			}
+
+			const result = tds1.find('p').text().trim();
+			const timeString = tds1.find('span').text().trim();
+
+			let status: SubmissionCaseStatus | undefined = undefined;
+			switch (result) {
+				case "Passed": status = SubmissionCaseStatus.passed; break;
+				case "Incorrect": status = SubmissionCaseStatus.incorrect; break;
+				case "Error": status = SubmissionCaseStatus.error; break;
+				case "Timeout": status = SubmissionCaseStatus.timeout; break;
+				case "Memory Error": status = SubmissionCaseStatus.memoryError; break;
+			}
+
+			const subcase: SubmissionCase = {
+				status: status,
+				timeString: timeString,
+				caseHeader: rawCaseHead
+			};
+			cases.push(subcase);
+
+		});
+
+		const submission: Submission = {
+			id: submissionID,
+			problemID: problemID,
+
+			quality: quality,
+			summaryScore: summaryScore,
+			cases: cases,
+			timestamp: date
+
+		};
+		return submission;
+	}
+
+	sendJudge(
+		problem: Problem, filepath: fs.PathLike
+	): Promise<Submission> {
+		return new Promise<Submission>((resolve, reject) => {
+			// post
+			const formData = new FormData();
+			formData.append('code', Buffer.alloc(0));
+			formData.append('lang', Buffer.alloc(0));
+			formData.append('file', fs.createReadStream(filepath));
+
+			formData.append('_token', problem.uploadToken);
+
+			this.tryGetCheerOfURLAndCheckAvailability({
+				url: URL_PROBLEM + `/${problem.id}/send`,
+				method: "POST",
+				data: formData,
+				customHeaders: {
+					"Content-Type": "multipart/form-data"
+				}
+			}).then($ => {
+				const submission: Submission | string = this.getSubmissionFromCheer($);
+				if (typeof submission === 'string') {
+					reject(submission);
+					return;
+				}
+				resolve(submission);
+			});
 		});
 	}
 
