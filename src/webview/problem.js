@@ -137,7 +137,6 @@ function renderSubmission(submission) {
 let filename = undefined;
 let currentSubmission = undefined;
 let submission = undefined;
-let knownFinished = false;
 
 window.addEventListener('message', event => {
 	const message = event.data; // The JSON data our extension sent
@@ -157,12 +156,10 @@ window.addEventListener('message', event => {
 			break;
 		case 'file_update':
 			filename = message.filename;
-			currentSubmission = message.currentSubmission;
 			update();
 			break;
 		case 'submission_update':
 			submission = message.submission;
-			knownFinished = message.knownFinished;
 			currentSubmission = message.currentSubmission;
 			update();
 			break;
@@ -182,18 +179,21 @@ function update() {
 	let refreshHidden = true;
 	let subliteUnknown = false;
 
-	if (currentSubmission && !knownFinished) {
-		if (currentSubmission.problemID === parseInt(idLink.innerHTML)) {
+	let targetSubmission = submission;
+
+	if (currentSubmission) {
+		refreshHidden = false;
+		if (currentSubmission.problemID === submission.problemID) {
 			// match
 			judgeText = 'Judging';
-			refreshHidden = false;
 			htmlSubmission = "Currently judging" + `
 				<vscode-progress-ring></vscode-progress-ring>
 			`;
 			subliteUnknown = true;
+			targetSubmission = currentSubmission;
 		} else {
 			judgeText = 'Judge (Busying)';
-			htmlSubmission = "Currently judging another problem.";
+			htmlSubmission = `Currently judging another problem. (Problem #${currentSubmission.problemID})`;
 		}
 	} else {
 		if (filename === undefined) {
@@ -201,6 +201,7 @@ function update() {
 		} else {
 			judgeDisabled = false;
 			judgeText = `Judge (${filename})`;
+			
 		}
 	}
 
@@ -219,8 +220,9 @@ function update() {
 	submissionForceRefresh.disabled = false;
 	submissionForceRefresh.hidden = refreshHidden;
 
-	if (submission) {
-		htmlSubmission += renderSubmission(submission);
+	if (targetSubmission) {
+		htmlSubmission += renderSubmission(targetSubmission);
+		submissionsView.innerHTML = htmlSubmission;
 	}
 
 	if (subliteUnknown) {
@@ -228,9 +230,6 @@ function update() {
 		<pre class="submission-lite submission-time">. . .</pre>
 		`;
 	}
-
-	submissionsView.innerHTML = htmlSubmission;
-	knownFinished = false;
 }
 let submissionBadgePassed, submissionBadgeIncorrect, submissionsView;
 let submissionForceRefresh, idLink, mainPanels, sublite;

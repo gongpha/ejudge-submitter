@@ -23,24 +23,19 @@ let problemDisp: vscode.Disposable | undefined = undefined;
 
 let currentTextEditor: vscode.TextEditor | undefined = undefined;
 
-let currentSubmission: Submission | undefined;
+let judgingSubmission: Submission | undefined;
+let showingSubmission: Submission | undefined;
 
 function closeAllPanel() {
 	panel?.dispose();
 }
 
-function setCurrentSubmission(submission: Submission | undefined, knownFinished: boolean = false) {
-	currentSubmission = submission;
-	updateSubmissionToPanel(currentSubmission, knownFinished);
-}
-
-function updateSubmissionToPanel(submission: Submission | undefined, knownFinished: boolean = false) {
+function updateSubmissionToPanel() {
 	if (panel) {
 		panel.webview.postMessage({
 			command: "submission_update",
-			submission: submission,
-			currentSubmission: currentSubmission,
-			knownFinished: knownFinished
+			submission: showingSubmission,
+			currentSubmission: judgingSubmission,
 		});
 	}
 }
@@ -86,10 +81,6 @@ export function activate(context: vscode.ExtensionContext) {
 		} else {
 			item.text = `$(code)$(accounts-view-bar-icon) ${account.username}`;
 			item.tooltip = `Logging as ${account.fullname} (${account.username})`;
-		}
-
-		if (currentSubmission !== undefined) {
-			item.tooltip += ` (Pending Submission: ${currentSubmission.id})`;
 		}
 	};
 
@@ -176,7 +167,7 @@ export function activate(context: vscode.ExtensionContext) {
 			panel.webview.postMessage({
 				command: "file_update",
 				filename: currentTextEditor ? path.basename(currentTextEditor.document.fileName) : undefined,
-				currentSubmission: currentSubmission
+				//currentSubmission: currentSubmission
 			});
 		}
 	};
@@ -255,6 +246,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const panel = getWebview(context);
 		panel.title = `Problem #${problemID}`;
 		panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, panel.title);
+		showingSubmission = undefined;
 
 		if (panelLoading !== undefined) {
 			panelLoading.cancel();
@@ -271,7 +263,8 @@ export function activate(context: vscode.ExtensionContext) {
 			// load last submission of the problem
 			if (problem.lastSubmission) {
 				student.getSubmission(problem.lastSubmission.id).then((submission) => {
-					updateSubmissionToPanel(submission);
+					showingSubmission = submission;
+					updateSubmissionToPanel();
 				});
 			}
 
@@ -301,30 +294,29 @@ export function activate(context: vscode.ExtensionContext) {
 							command: "focus_panels",
 							panel: 3
 						});
-						setCurrentSubmission(r);
+						judgingSubmission = r;
+						updateSubmissionToPanel();
 					});
 				} else if (message.command === "force_refresh") {
-					if (currentSubmission === undefined) {
+					if (judgingSubmission === undefined) {
 						vscode.window.showErrorMessage("No submission to refresh");
 						return;
 					}
-					student.getSubmission(currentSubmission.id).then(r => {
+					student.getSubmission(judgingSubmission.id).then(r => {
 						// compare
 						let finished = false;
 						if (r.cases?.length === 0) {
 							// still being judged. continue
 							finished = false;
-						} else if (r.cases?.length === currentSubmission?.cases?.length) {
+						} else if (r.cases?.length === judgingSubmission?.cases?.length) {
 							// FINISHED
 							finished = true;
 						}
-
+						judgingSubmission = r;
 						if (finished) {
-							setCurrentSubmission(r, true);
-							currentSubmission = undefined;
-						} else {
-							setCurrentSubmission(r);
+							judgingSubmission = undefined;
 						}
+						updateSubmissionToPanel();
 					});
 				}
 			});
