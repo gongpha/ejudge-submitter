@@ -15,7 +15,7 @@ function renderResult(results, fromServer = false) {
 		let classStyle = "";
 		let statusText = "";
 
-		
+
 
 		if (fromServer) {
 			let col3 = element.timeString === undefined ? "" : `
@@ -63,7 +63,7 @@ function renderResult(results, fromServer = false) {
 				statusText = "Incorrect";
 				classStyle = "submission-not-passed";
 			}
-	
+
 			res += `<pre class="tested-item ${classStyle}">(#${i + 1}) ${statusText}</pre>`;
 		}
 	});
@@ -72,6 +72,7 @@ function renderResult(results, fromServer = false) {
 	}
 	return res;
 }
+
 
 function renderSubmission(submission) {
 	let quality = "";
@@ -82,12 +83,11 @@ function renderSubmission(submission) {
 		quality = `
 		<vscode-data-grid-row>
 			<vscode-data-grid-cell grid-column="1">Quality</vscode-data-grid-cell>
-			<vscode-data-grid-cell grid-column="2"><pre class="submission-lite ${
-				is100percent ? "submission-quality-100" : "submission-quality-under-100"
+			<vscode-data-grid-cell grid-column="2"><pre class="submission-lite ${is100percent ? "submission-quality-100" : "submission-quality-under-100"
 			}">${submission.quality.percent}%</pre></vscode-data-grid-cell>
 		</vscode-data-grid-row>
 		`;
-		
+
 		if (!is100percent) {
 			summary += `
 			<vscode-divider></vscode-divider>
@@ -125,7 +125,7 @@ function renderSubmission(submission) {
 		</vscode-data-grid-row>
 		<vscode-data-grid-row>
 			<vscode-data-grid-cell grid-column="1">Timestamp</vscode-data-grid-cell>
-			<vscode-data-grid-cell grid-column="2">${submission.timestamp}</vscode-data-grid-cell>
+			<vscode-data-grid-cell grid-column="2">${submission.timestamp.toLocaleString()}</vscode-data-grid-cell>
 		</vscode-data-grid-row>
 	</vscode-data-grid>
 	${summary}
@@ -163,7 +163,11 @@ window.addEventListener('message', event => {
 		case 'submission_update':
 			submission = message.submission;
 			knownFinished = message.knownFinished;
+			currentSubmission = message.currentSubmission;
 			update();
+			break;
+		case 'focus_panels':
+			mainPanels.setAttribute('activeid', `tab-${message.panel}`);
 			break;
 	}
 });
@@ -176,8 +180,9 @@ function update() {
 	let textDisabled = true;
 	let judgeDisabled = true;
 	let refreshHidden = true;
+	let subliteUnknown = false;
 
-	if (currentSubmission) {
+	if (currentSubmission && !knownFinished) {
 		if (currentSubmission.problemID === parseInt(idLink.innerHTML)) {
 			// match
 			judgeText = 'Judging';
@@ -185,6 +190,7 @@ function update() {
 			htmlSubmission = "Currently judging" + `
 				<vscode-progress-ring></vscode-progress-ring>
 			`;
+			subliteUnknown = true;
 		} else {
 			judgeText = 'Judge (Busying)';
 			htmlSubmission = "Currently judging another problem.";
@@ -210,16 +216,24 @@ function update() {
 	button.disabled = textDisabled;
 	judgeButton.innerHTML = judgeText;
 	judgeButton.disabled = judgeDisabled;
+	submissionForceRefresh.disabled = false;
 	submissionForceRefresh.hidden = refreshHidden;
 
 	if (submission) {
 		htmlSubmission += renderSubmission(submission);
 	}
 
+	if (subliteUnknown) {
+		sublite.innerHTML = `
+		<pre class="submission-lite submission-time">. . .</pre>
+		`;
+	}
+
 	submissionsView.innerHTML = htmlSubmission;
+	knownFinished = false;
 }
 let submissionBadgePassed, submissionBadgeIncorrect, submissionsView;
-let submissionForceRefresh, idLink;
+let submissionForceRefresh, idLink, mainPanels, sublite;
 
 function main() {
 	button = document.getElementById("test-sample-button");
@@ -231,6 +245,8 @@ function main() {
 	submissionForceRefresh = document.getElementById("submission-force-refresh");
 	submissionsView = document.getElementById("submissions-view");
 	idLink = document.getElementById("id-link");
+	mainPanels = document.getElementById("main-panels");
+	sublite = document.getElementById("sublite");
 
 	testing.hidden = true;
 	update();
@@ -249,11 +265,13 @@ function main() {
 		vscode.postMessage({
 			command: "judge",
 		});
+		judgeButton.disabled = true;
 	});
 
 	submissionForceRefresh.addEventListener("click", () => {
 		vscode.postMessage({
 			command: "force_refresh",
 		});
+		submissionForceRefresh.disabled = true;
 	});
 }

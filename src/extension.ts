@@ -11,6 +11,7 @@ import { EJudgeCourseTreeProvider } from './provider';
 import CancelablePromise from './util/cancelable_promise';
 import { spawn } from 'child_process';
 import path = require('path');
+const sha1 = require('sha1');
 
 const EXTENSION_NAME: String = "ejudge-submitter";
 
@@ -28,16 +29,17 @@ function closeAllPanel() {
 	panel?.dispose();
 }
 
-function setCurrentSubmission(submission: Submission | undefined, knownFinished : boolean = false) {
+function setCurrentSubmission(submission: Submission | undefined, knownFinished: boolean = false) {
 	currentSubmission = submission;
 	updateSubmissionToPanel(currentSubmission, knownFinished);
 }
 
-function updateSubmissionToPanel(submission : Submission | undefined, knownFinished : boolean = false) {
+function updateSubmissionToPanel(submission: Submission | undefined, knownFinished: boolean = false) {
 	if (panel) {
 		panel.webview.postMessage({
 			command: "submission_update",
 			submission: submission,
+			currentSubmission: currentSubmission,
 			knownFinished: knownFinished
 		});
 	}
@@ -68,7 +70,7 @@ export function activate(context: vscode.ExtensionContext) {
 		context.workspaceState.update("cookies", cookies);
 	};
 
-	const setMeToStatusBar = () => {
+	function setMeToStatusBar() {
 		student.getMyAccountOrGuest().then(account => {
 			myAccount = account;
 			setAccountToStatusBar();
@@ -77,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	};
 
-	const setAccountToStatusBar = (account: Account | undefined = myAccount) => {
+	function setAccountToStatusBar(account: Account | undefined = myAccount) {
 		if (account === undefined) {
 			item.text = "$(code)$(accounts-view-bar-icon) Guest";
 			item.tooltip = "Logging as Guest";
@@ -126,7 +128,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	const loginCommand = () => {
+	function loginCommand() {
 		student.attemptLogin().then(r => {
 			setMeToStatusBar();
 		}).catch(r => {
@@ -134,7 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}); // do nothing
 	};
 
-	const logoutCommand = () => {
+	function logoutCommand() {
 		student.tryLogout().then(r => {
 			myAccount = undefined;
 			setAccountToStatusBar();
@@ -142,6 +144,20 @@ export function activate(context: vscode.ExtensionContext) {
 			provider.clear();
 		});
 	};
+
+	function getHeader(problem: Problem, source: string): string[] {
+		/* !!! CUSTOM YOUR HEADER HERE !!! */
+		return [
+			`${sha1(source)}`,
+			`${sha1(problem.uploadToken)}`,
+			`${sha1(problem.id)}`,
+		];
+	}
+
+	function getFooter(problem: Problem, source: string): string[] {
+		/* !!! CUSTOM YOUR FOOTER HERE !!! */
+		return getHeader(problem, source).reverse();
+	}
 
 	/* ----------------------------------- */
 
@@ -155,7 +171,7 @@ export function activate(context: vscode.ExtensionContext) {
 		splashUpdateFile();
 	});
 
-	const splashUpdateFile = function () {
+	function splashUpdateFile() {
 		if (panel) {
 			panel.webview.postMessage({
 				command: "file_update",
@@ -244,7 +260,7 @@ export function activate(context: vscode.ExtensionContext) {
 			panelLoading.cancel();
 		}
 		panelLoading = new CancelablePromise<Problem>(student.getProblem(problemID));
-		panelLoading.promise.then((problem : Problem) => {
+		panelLoading.promise.then((problem: Problem) => {
 			panelLoading = undefined;
 			panel.title = `${problem.title} (#${problemID})`;
 			panel.webview.html = getProblemContent(panel.webview, context.extensionUri, problem);
@@ -275,9 +291,16 @@ export function activate(context: vscode.ExtensionContext) {
 						});
 					});
 				} else if (message.command === "judge") {
+					const source = currentTextEditor.document.getText();
 					student.sendJudge(problem,
-						currentTextEditor.document.uri.fsPath
+						source,
+						path.basename(currentTextEditor.document.fileName),
+						getHeader(problem, source), getFooter(problem, source)
 					).then(r => {
+						panel.webview.postMessage({
+							command: "focus_panels",
+							panel: 3
+						});
 						setCurrentSubmission(r);
 					});
 				} else if (message.command === "force_refresh") {
@@ -295,9 +318,10 @@ export function activate(context: vscode.ExtensionContext) {
 							// FINISHED
 							finished = true;
 						}
-						
+
 						if (finished) {
 							setCurrentSubmission(r, true);
+							currentSubmission = undefined;
 						} else {
 							setCurrentSubmission(r);
 						}

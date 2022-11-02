@@ -3,6 +3,7 @@ import axios, { AxiosInstance, AxiosRequestHeaders, AxiosResponse } from 'axios'
 import * as cheerio from 'cheerio';
 import * as FormData from 'form-data';
 import * as fs from 'fs';
+import { Blob } from 'buffer';
 
 const URL_HEAD = 'https://ejudge.it.kmitl.ac.th';
 const URL_LOGIN_NEW = '/auth/login';
@@ -415,6 +416,8 @@ export class EJudge {
 			params = {
 				url: paramsOrURL,
 			};
+		} else {
+			params = paramsOrURL;
 		}
 		return new Promise<cheerio.CheerioAPI>((resolve, reject) => {
 			this.tryGetCheerOfURL(params).then($ => {
@@ -888,14 +891,45 @@ export class EJudge {
 	}
 
 	sendJudge(
-		problem: Problem, filepath: fs.PathLike
+		problem: Problem, source: string, filename: string,
+		dumpHeaders: string[] = [],
+		dumpFooters: string[] = []
 	): Promise<Submission> {
 		return new Promise<Submission>((resolve, reject) => {
+			let headerAll = "";
+			let footerAll = "";
+
+			function getComment(s: string): string {
+				if (filename.endsWith('.py')) {
+					return `# ${s}\n`;
+				} else if (filename.endsWith('.c')) {
+					return `// ${s}\n`;
+				}
+				return '';
+			}
+
+			for (const header of dumpHeaders) {
+				headerAll += getComment(header);
+			}
+			for (const footer of dumpFooters) {
+				footerAll += getComment(footer);
+			}
+
+			if (dumpHeaders.length > 0) {
+				headerAll += "\n";
+			}
+			if (dumpFooters.length > 0) {
+				footerAll = "\n" + footerAll;
+			}
+
+			source = headerAll + source + footerAll;
+
+
 			// post
 			const formData = new FormData();
-			formData.append('code', Buffer.alloc(0));
-			formData.append('lang', Buffer.alloc(0));
-			formData.append('file', fs.createReadStream(filepath));
+			formData.append('code', '');
+			formData.append('lang', '');
+			formData.append('file', source, filename);
 
 			formData.append('_token', problem.uploadToken);
 
