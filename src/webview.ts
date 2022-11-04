@@ -127,7 +127,7 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 								</vscode-data-grid-row>
 								<vscode-data-grid-row>
 									<vscode-data-grid-cell grid-column="1">${problem.specIn}</vscode-data-grid-cell>
-									<vscode-data-grid-cell grid-column="2">${problem.specIn}</vscode-data-grid-cell>
+									<vscode-data-grid-cell grid-column="2">${problem.specOut}</vscode-data-grid-cell>
 								</vscode-data-grid-row>
 							</vscode-data-grid>
 							<vscode-divider></vscode-divider>
@@ -153,7 +153,7 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 					<vscode-panel-view id="view-3">
 					<vscode-button id="submission-force-refresh" hidden appearance="secondary">Force Refresh</vscode-button>
 						<div id="submissions-view">
-							<vscode-progress-ring></vscode-progress-ring>
+							Submit your code to see your submissions here.
 						</div>
 					</vscode-panel-view>
 				</vscode-panels>

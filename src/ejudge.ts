@@ -675,7 +675,7 @@ export class EJudge {
 
 						// Spec
 						let table = $(rows[1]).find(".box-body > table");
-						_ = table.find("tbody > tr");
+						_ = table.find("tbody > tr > td");
 
 						__ = _.get(0);
 						if (__ !== undefined) { problem.specIn = ($(__).html() ?? "").trim(); };

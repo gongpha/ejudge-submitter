@@ -40,6 +40,7 @@ function renderResult(results, fromServer = false) {
 			} else if (element.status === 3) {
 				statusText = "Timeout";
 				classStyle = "submission-timeout";
+				col3 = '';
 			} else {
 				statusText = "Memory Error";
 				classStyle = "submission-error";
