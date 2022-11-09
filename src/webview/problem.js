@@ -202,7 +202,7 @@ function update() {
 		} else {
 			judgeDisabled = false;
 			judgeText = `Judge (${filename})`;
-			
+
 		}
 	}
 

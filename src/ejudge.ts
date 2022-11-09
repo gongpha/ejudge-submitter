@@ -2,8 +2,6 @@ import CancelablePromise from './util/cancelable_promise';
 import axios, { AxiosInstance, AxiosRequestHeaders, AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
 import * as FormData from 'form-data';
-import * as fs from 'fs';
-import { Blob } from 'buffer';
 
 const URL_HEAD = 'https://ejudge.it.kmitl.ac.th';
 const URL_LOGIN_NEW = '/auth/login';
@@ -388,7 +386,7 @@ export class EJudge {
 					// is redirected
 					if (response.status === 302) {
 						const next = response.headers['location'];
-						const nextURL = new URL(next);
+						const nextURL = new URL(next ?? '');
 						console.log("redirecting to " + nextURL.pathname);
 
 						this.tryGetResponseOfURL({

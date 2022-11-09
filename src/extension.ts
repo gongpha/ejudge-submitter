@@ -4,8 +4,7 @@ import {
 	Submission
 } from './ejudge';
 import {
-	getProblemContent, getLoginContent, getLoadingContent,
-	getSubmissionLiteHTML
+	getProblemContent, getLoginContent, getLoadingContent
 } from './webview';
 import { EJudgeCourseTreeProvider } from './provider';
 import CancelablePromise from './util/cancelable_promise';
@@ -13,10 +12,7 @@ import { spawn } from 'child_process';
 import path = require('path');
 const sha1 = require('sha1');
 
-const EXTENSION_NAME: String = "ejudge-submitter";
-
 let panel: vscode.WebviewPanel | undefined = undefined;
-//let panelSubmission: vscode.WebviewPanel | undefined = undefined;
 
 let panelLoading: CancelablePromise<any> | undefined;
 let problemDisp: vscode.Disposable | undefined = undefined;
@@ -43,7 +39,9 @@ function updateSubmissionToPanel() {
 function getWebview(context: vscode.ExtensionContext): vscode.WebviewPanel {
 	if (!panel) {
 		panel = vscode.window.createWebviewPanel("problemDetail", "<@@@>", vscode.ViewColumn.Beside, {
-			enableScripts: true,
+			enableScripts: true, localResourceRoots: [
+				context.extensionUri
+			]
 		});
 		context.subscriptions.push(panel);
 		panel.onDidDispose(
@@ -175,14 +173,14 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(dotdDisp);
 
 	/* Login */
-	const login = vscode.commands.registerCommand(EXTENSION_NAME + '.login', loginCommand);
+	const login = vscode.commands.registerCommand('login', loginCommand);
 	context.subscriptions.push(login);
-	const logout = vscode.commands.registerCommand(EXTENSION_NAME + '.logout', logoutCommand);
+	const logout = vscode.commands.registerCommand('logout', logoutCommand);
 	context.subscriptions.push(logout);
 
 	/* Status bar */
 	const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-	item.command = "ejudge-submitter.manageAccount";
+	item.command = "manageAccount";
 	context.subscriptions.push(item);
 
 	item.text = "$(sync~spin) Connecting to <e>judge";
@@ -190,7 +188,7 @@ export function activate(context: vscode.ExtensionContext) {
 	item.show();
 	setMeToStatusBar();
 
-	const manageAccount = vscode.commands.registerCommand(EXTENSION_NAME + '.manageAccount', () => {
+	const manageAccount = vscode.commands.registerCommand('manageAccount', () => {
 		const list: Array<vscode.QuickPickItem> = [];
 		if (myAccount === undefined) {
 			list.push({
@@ -221,7 +219,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	/* Tree (Provider) */
 	const provider = new EJudgeCourseTreeProvider(student);
-	const treeView = vscode.window.createTreeView("ejudge-submitter.courseTree", {
+	const treeView = vscode.window.createTreeView("courseTree", {
 		treeDataProvider: provider,
 		showCollapseAll: false,
 	});
@@ -242,7 +240,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// 	});
 	// });
 
-	const openProblem = vscode.commands.registerCommand(EXTENSION_NAME + '.openProblem', (problemID: number) => {
+	const openProblem = vscode.commands.registerCommand('openProblem', (problemID: number) => {
 		const panel = getWebview(context);
 		panel.title = `Problem #${problemID}`;
 		panel.webview.html = getLoadingContent(panel.webview, context.extensionUri, panel.title);

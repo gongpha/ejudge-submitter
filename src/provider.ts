@@ -109,10 +109,6 @@ class CourseItem extends TreeItem {
 		this.course = course;
 		this.iconPath = new ThemeIcon("list-unordered");
 		this.contextValue = "course";
-		// this.command = {
-		// 	title: "View a course",
-		// 	command: "ejudge-submitter.viewProblem",
-		// };
 		this.tooltip = `Owned by ${(course.owner!.fullname) ??= "(Someone . . .)"}\
 			\nRelease : ${(course.release!.toLocaleDateString())}\nExpire : ${course.expire!.toLocaleDateString()}`;
 	}
@@ -134,7 +130,7 @@ class ProblemItem extends TreeItem {
 		this.iconPath = new ThemeIcon("code");
 		this.command = {
 			title: "Open a problem",
-			command: "ejudge-submitter.openProblem",
+			command: "openProblem",
 			arguments: [problem.id],
 		};
 		const stars = (
