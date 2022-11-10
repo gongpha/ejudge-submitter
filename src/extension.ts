@@ -156,7 +156,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	function getHeader(problem: Problem, source: string): string[] {
 		/* !!! CUSTOM YOUR HEADER HERE !!! */
-		return parseCustomComment(problem, vscode.workspace.getConfiguration().get('uploadHeader', '') || '');
+		return parseCustomComment(problem, vscode.workspace.getConfiguration('ejudge-submitter').get('uploadHeader', '') || '');
 	}
 
 	function getFooter(problem: Problem, source: string): string[] {
@@ -321,14 +321,17 @@ export function activate(context: vscode.ExtensionContext) {
 						// compare
 						let finished = false;
 						if (r.cases?.length === 0) {
-							// still being judged. continue
-							finished = false;
+							// still judging. continue
 						} else if (r.cases?.length === judgingSubmission?.cases?.length) {
 							// FINISHED
 							finished = true;
 						}
 						judgingSubmission = r;
 						if (finished) {
+							if (showingSubmission?.problemID === judgingSubmission.problemID) {
+								// update this submission
+								showingSubmission = judgingSubmission;
+							}
 							judgingSubmission = undefined;
 						}
 						updateSubmissionToPanel();
