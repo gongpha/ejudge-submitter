@@ -44,6 +44,7 @@ function renderResult(results, fromServer = false) {
 			} else {
 				statusText = "Memory Error";
 				classStyle = "submission-error";
+				col3 = '';
 			}
 
 			res += `
@@ -73,7 +74,6 @@ function renderResult(results, fromServer = false) {
 	}
 	return res;
 }
-
 
 function renderSubmission(submission) {
 	let quality = "";
@@ -135,9 +135,56 @@ function renderSubmission(submission) {
 	`;
 }
 
+function renderSubmissionLite(submission) {
+	if (!submission) {
+		return "<pre class=\"submission-lite submission-time\". . .</pre>";
+	}
+	if ("problemID" in submission) {
+		// Client-side rendering a submission lite of submission
+		let status = submission.cases?.length === knownTestCases ? "submission-passed" : "submission-time";
+		let label = "";
+
+		for (const caseItem of submission.cases ?? []) {
+			if (caseItem.status === 1) {
+				status = "submission-not-passed";
+				label += "E";
+			} else if (caseItem.status === 2) {
+				status = "submission-not-passed";
+				label += "-";
+			} else if (caseItem.status === 4) {
+				status = "submission-not-passed";
+				label += "M";
+			} else if (caseItem.status === 3) {
+				status = "submission-not-passed";
+				label += "T";
+			} else if (caseItem.status === 0) {
+				label += "P";
+			}
+		}
+
+		for (let i = submission.cases?.length ?? 0; i < knownTestCases; i++) {
+			label += ".";
+		}
+
+		if (label.length >= 32) {
+			label = label.substring(0, 32) + " ...";
+		}
+
+		if (label === "") {
+			label = ". . .";
+		}
+
+		return `<pre class="submission-lite ${status}"
+				}">${label}</pre>&nbsp&nbsp(#${submission.id})`;
+	}
+	return `<pre class="submission-lite ${submission.status === 2 ? "submission-not-passed" : "submission-passed"
+		}">${submission.display}</pre>&nbsp&nbsp(#${submission.id})`;
+}
+
 let filename = undefined;
 let currentSubmission = undefined;
 let submission = undefined;
+let knownTestCases = 0;
 
 window.addEventListener('message', event => {
 	const message = event.data; // The JSON data our extension sent
@@ -162,6 +209,7 @@ window.addEventListener('message', event => {
 		case 'submission_update':
 			submission = message.submission;
 			currentSubmission = message.currentSubmission;
+			knownTestCases = message.knownTestCases;
 			update();
 			break;
 		case 'focus_panels':
@@ -178,7 +226,6 @@ function update() {
 	let textDisabled = true;
 	let judgeDisabled = true;
 	let refreshHidden = true;
-	let subliteUnknown = false;
 
 	let targetSubmission = submission;
 
@@ -190,7 +237,6 @@ function update() {
 			htmlSubmission = "Currently judging" + `
 				<vscode-progress-ring></vscode-progress-ring>
 			`;
-			subliteUnknown = true;
 			targetSubmission = currentSubmission;
 		} else {
 			judgeText = 'Judge (Busying)';
@@ -224,12 +270,7 @@ function update() {
 	if (targetSubmission) {
 		htmlSubmission += renderSubmission(targetSubmission);
 		submissionsView.innerHTML = htmlSubmission;
-	}
-
-	if (subliteUnknown) {
-		sublite.innerHTML = `
-		<pre class="submission-lite submission-time">. . .</pre>
-		`;
+		sublite.innerHTML = renderSubmissionLite(targetSubmission);
 	}
 }
 let submissionBadgePassed, submissionBadgeIncorrect, submissionsView;
@@ -273,5 +314,9 @@ function main() {
 			command: "force_refresh",
 		});
 		submissionForceRefresh.disabled = true;
+	});
+
+	vscode.postMessage({
+		command: "fetch"
 	});
 }

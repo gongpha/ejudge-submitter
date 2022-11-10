@@ -1,5 +1,5 @@
 import { Disposable, Webview, WebviewPanel, window, Uri, ViewColumn } from "vscode";
-import { Problem, SubmissionLite, SubmissionLiteStatus } from './ejudge';
+import { Problem, Submission, SubmissionLite, SubmissionLiteStatus, SubmissionCaseStatus } from './ejudge';
 
 export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
 	return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
@@ -48,14 +48,6 @@ export function getLoginContent(webview: Webview, extensionUri: Uri, message: st
 	  `;
 };
 
-export function getSubmissionLiteHTML(submission: SubmissionLite | undefined) {
-	if (!submission) {
-		return ". . .";
-	}
-	return `<pre class="submission-lite ${submission.status === SubmissionLiteStatus.danger ? "submission-not-passed" : "submission-passed"
-		}">${submission.display}</pre>&nbsp&nbsp(#${submission.id})`;
-}
-
 export function getProblemContent(webview: Webview, extensionUri: Uri, problem: Problem): string {
 	const samples = (problem.samples ??= []).map(sample => {
 		return `<vscode-data-grid-row class="samples-row">
@@ -95,8 +87,14 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 						<vscode-data-grid-cell grid-column="2">${rest}</vscode-data-grid-cell>
 					</vscode-data-grid-row>
 					<vscode-data-grid-row>
+						<vscode-data-grid-cell grid-column="1">Testcase</vscode-data-grid-cell>
+						<vscode-data-grid-cell grid-column="2">${problem.testcases}</vscode-data-grid-cell>
+					</vscode-data-grid-row>
+					<vscode-data-grid-row>
 						<vscode-data-grid-cell grid-column="1">Your Score</vscode-data-grid-cell>
-						<vscode-data-grid-cell grid-column="2" id="sublite">${getSubmissionLiteHTML(problem.lastSubmission)}</vscode-data-grid-cell>
+						<vscode-data-grid-cell grid-column="2" id="sublite">
+							<pre class="submission-lite submission-time">. . .</pre>
+						</vscode-data-grid-cell>
 					</vscode-data-grid-row>
 				</vscode-data-grid>
 				<vscode-button id="judge-button" disabled="true">Judge (No active file)</vscode-button>

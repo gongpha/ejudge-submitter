@@ -20,18 +20,20 @@ let problemDisp: vscode.Disposable | undefined = undefined;
 let currentTextEditor: vscode.TextEditor | undefined = undefined;
 
 let judgingSubmission: Submission | undefined;
+let judgingProblem: Problem | undefined;
 let showingSubmission: Submission | undefined;
 
 function closeAllPanel() {
 	panel?.dispose();
 }
 
-function updateSubmissionToPanel() {
+function updateSubmissionToPanel(knownTestCases: number | undefined) {
 	if (panel) {
 		panel.webview.postMessage({
 			command: "submission_update",
 			submission: showingSubmission,
 			currentSubmission: judgingSubmission,
+			knownTestCases: knownTestCases,
 		});
 	}
 }
@@ -275,23 +277,34 @@ export function activate(context: vscode.ExtensionContext) {
 				problemDisp.dispose();
 			}
 
-			// load last submission of the problem
-			if (problem.lastSubmission) {
-				student.getSubmission(problem.lastSubmission.id).then((submission) => {
-					showingSubmission = submission;
-					updateSubmissionToPanel();
-				});
+			function updateSubmission(r: Submission, update: boolean) {
+				if (update) { judgingSubmission = r; } else { showingSubmission = r; }
+
+				if (judgingProblem && judgingSubmission) {
+					if (judgingSubmission.cases?.length === judgingProblem.testcases) {
+						// FINISHED
+						if (showingSubmission?.problemID === judgingSubmission.problemID) {
+							// update both
+							showingSubmission = judgingSubmission;
+						}
+						judgingSubmission = undefined;
+					}
+				}
+				updateSubmissionToPanel(problem.testcases);
 			}
 
-			splashUpdateFile();
+			function fetch() {
+				// load last submission of the problem
+				if (problem.lastSubmission) {
+					student.getSubmission(problem.lastSubmission.id).then(r => updateSubmission(r, false));
+				}
+
+				splashUpdateFile();
+			}
 
 			problemDisp = panel.webview.onDidReceiveMessage((message) => {
-
-				if (currentTextEditor?.document?.fileName === undefined) {
-					vscode.window.showInformationMessage("No editor is active");
-					return;
-				}
 				if (message.command === "test_sample") {
+					if (currentTextEditor === undefined) { return; }
 					tryCases(problem, currentTextEditor.document.fileName, context.extensionUri).then(r => {
 						panel.webview.postMessage({
 							command: "done",
@@ -299,43 +312,29 @@ export function activate(context: vscode.ExtensionContext) {
 						});
 					});
 				} else if (message.command === "judge") {
+					if (currentTextEditor === undefined) { return; }
 					const source = currentTextEditor.document.getText();
 					student.sendJudge(problem,
 						source,
 						path.basename(currentTextEditor.document.fileName),
 						getHeader(problem, source), getFooter(problem, source)
 					).then(r => {
+						judgingProblem = problem;
 						panel.webview.postMessage({
 							command: "focus_panels",
 							panel: 3
 						});
 						judgingSubmission = r;
-						updateSubmissionToPanel();
+						updateSubmissionToPanel(problem.testcases);
 					});
 				} else if (message.command === "force_refresh") {
 					if (judgingSubmission === undefined) {
 						vscode.window.showErrorMessage("No submission to refresh");
 						return;
 					}
-					student.getSubmission(judgingSubmission.id).then(r => {
-						// compare
-						let finished = false;
-						if (r.cases?.length === 0) {
-							// still judging. continue
-						} else if (r.cases?.length === judgingSubmission?.cases?.length) {
-							// FINISHED
-							finished = true;
-						}
-						judgingSubmission = r;
-						if (finished) {
-							if (showingSubmission?.problemID === judgingSubmission.problemID) {
-								// update this submission
-								showingSubmission = judgingSubmission;
-							}
-							judgingSubmission = undefined;
-						}
-						updateSubmissionToPanel();
-					});
+					student.getSubmission(judgingSubmission.id).then(r => updateSubmission(r, true));
+				} else if (message.command === "fetch") {
+					fetch();
 				}
 			});
 			context.subscriptions.push(problemDisp);
@@ -360,7 +359,7 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 		return new Promise<TestCaseResult>((resolve, reject) => {
 			const caseItem = problem.samples![idx];
 			const params = [(
-				vscode.Uri.joinPath(extensionUri, "src", "testsrc.py").fsPath
+				vscode.Uri.joinPath(extensionUri, "src", "mini-ejudge.py").fsPath
 			), filePath, JSON.stringify(caseItem[0]).slice(1, -1), JSON.stringify(caseItem[1]).slice(1, -1)];
 			let child = spawn('python', params);
 

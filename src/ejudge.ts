@@ -117,6 +117,7 @@ export interface Problem {
 	samples?: string[][]; // in, out
 
 	deadline?: Date
+	testcases?: number;
 	restictWord?: string[];
 
 	//fullScore? : number;
@@ -721,6 +722,11 @@ export class EJudge {
 								});
 								problem.restictWord = words;
 							}
+						}
+
+						__ = _.get(7);
+						if (__ !== undefined) {
+							problem.testcases = parseInt($(__).text().split(" ")[0]);
 						}
 
 						__ = _.get(11);
