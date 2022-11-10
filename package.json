@@ -67,6 +67,17 @@
 					"visibility": "visible"
 				}
 			]
+		},
+		"configuration": {
+			"type": "object",
+			"title": "<e>judge Submitter",
+			"properties": {
+				"uploadHeader": {
+					"type": "string",
+					"default": "Uploaded by <e>judge Submitter for problem #{problemID} ({problemTitle})",
+					"markdownDescription": "A header comment on the uploaded file\n - `{username}` : Account username\n - `{fullname}` : Account fullname\n - `{problemID}` : Problem ID\n - `{problemTitle}` : Problem title"
+				}
+			}
 		}
 	},
 	"scripts": {

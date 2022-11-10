@@ -10,7 +10,7 @@ import { EJudgeCourseTreeProvider } from './provider';
 import CancelablePromise from './util/cancelable_promise';
 import { spawn } from 'child_process';
 import path = require('path');
-const sha1 = require('sha1');
+import { formatBlock } from './util/stringtool';
 
 let panel: vscode.WebviewPanel | undefined = undefined;
 
@@ -134,18 +134,35 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	};
 
+	function strFormat(s: string) {
+		let i = 0, args = arguments;
+		return s.replace(/{}/g, function () {
+			return typeof args[i] !== 'undefined' ? args[i++] : '';
+		});
+	};
+
+	function parseCustomComment(problem: Problem, raw: string): string[] {
+		if (raw === "") { return []; }
+		return [
+			formatBlock(raw, {
+				"username": myAccount?.username ?? "Guest",
+				"fullname": myAccount?.fullname ?? "Guest",
+
+				"problemID": problem.id.toString(),
+				"problemTitle": problem.title ?? "<unknown>",
+			})
+		];
+	}
+
 	function getHeader(problem: Problem, source: string): string[] {
 		/* !!! CUSTOM YOUR HEADER HERE !!! */
-		return [
-			`${sha1(source)}`,
-			`${sha1(problem.uploadToken)}`,
-			`${sha1(problem.id)}`,
-		];
+		return parseCustomComment(problem, vscode.workspace.getConfiguration().get('uploadHeader', '') || '');
 	}
 
 	function getFooter(problem: Problem, source: string): string[] {
 		/* !!! CUSTOM YOUR FOOTER HERE !!! */
-		return getHeader(problem, source).reverse();
+		return [];
+		//return parseCustomComment(problem, vscode.workspace.getConfiguration().get('uploadFooter', '') || '');
 	}
 
 	/* ----------------------------------- */
