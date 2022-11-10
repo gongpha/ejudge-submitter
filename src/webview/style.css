@@ -53,52 +53,52 @@ code {
 	border: 1px solid #555;
 	border-radius: 9px;
 	margin: 4px;
+	user-select: all;
 }
 
 .samples-cell.head {
 	margin-right: 10px;
 }
 
-.submission-quality-100 {
-	background-image: linear-gradient(to left, #28ec28, #51f2c5);
-}
-
-.submission-quality-under-100 {
-	background-image: linear-gradient(to left, #ffd518, #fffc5a);
-}
-
-.submission-passed {
-	background-image: linear-gradient(to left, #28ec28, #51f2c5);
-}
-
-.submission-not-passed {
-	background-image: linear-gradient(to left, #d9534f, #ff5a9f);
-}
-
-.submission-error {
-	background-image: linear-gradient(to left, #d9534f, #fffc5a);
-}
-
-.submission-timeout {
-	background-image: linear-gradient(to left, #d9534f, #696969);
-}
-
-.submission-time {
-	background-color: #555;
-	color: gainsboro;
-}
-
 .submission-lite {
-	/* direct copy from bootstrap lmao */
 	display: inline;
 	padding: 3px 15px 3px;
 	font-weight: 700;
 	line-height: 1;
-	color: #000 !important;
+	color: #000;
 	text-align: center;
 	white-space: nowrap;
 	vertical-align: baseline;
 	border-radius: 5px;
+}
+
+.submission-quality-100 {
+	background-color: #28ec8a;
+}
+
+.submission-quality-under-100 {
+	background-color: #ffdf50;
+}
+
+.submission-passed {
+	background-color: #28ec8a;
+}
+
+.submission-not-passed {
+	background-color: #fc537d;
+}
+
+.submission-error {
+	background-image: linear-gradient(to left, #fc537d, #fffc5a);
+}
+
+.submission-timeout {
+	background-image: linear-gradient(to left, #fc537d, #696969);
+}
+
+.submission-time {
+	background-color: #202020;
+	color: gainsboro;
 }
 
 .tested-item {
@@ -141,6 +141,6 @@ code {
 	padding: 3px 15px 3px;
 	font-weight: 700;
 	line-height: 1;
-	color: #000 !important;
+	color: #000;
 	border-radius: 5px;
 }
