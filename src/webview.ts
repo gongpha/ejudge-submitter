@@ -134,7 +134,7 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 							<vscode-button id="test-sample-button" appearance="secondary">Test samples</vscode-button>
 							<div id="testing">
 								<vscode-progress-ring></vscode-progress-ring>
-								<span id="testing-text">Start Testings...</span>
+								<span id="testing-text">Start Testing...</span>
 							</div>
 							<div id="test-result">
 							</div>
