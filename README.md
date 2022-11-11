@@ -12,3 +12,4 @@ The extension supports all required features of the &lt;e&gt;judge system. It ca
 - Submit codes for judgment
 - View submission status & results
 - Test sample cases in a one click
+- STALK YOUR CLASSMATES !

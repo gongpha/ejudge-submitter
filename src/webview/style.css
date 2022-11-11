@@ -144,3 +144,10 @@ code {
 	color: #000;
 	border-radius: 5px;
 }
+
+.stalker-profile-pic {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	margin: 4px;
+}
