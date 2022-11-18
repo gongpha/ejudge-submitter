@@ -41,10 +41,13 @@ function renderResult(results, fromServer = false) {
 				statusText = "Timeout";
 				classStyle = "submission-timeout";
 				col3 = '';
-			} else {
+			} else if (element.status === 4) {
 				statusText = "Memory Error";
 				classStyle = "submission-error";
 				col3 = '';
+			} else {
+				statusText = "Restrict Word";
+				classStyle = "submission-error";
 			}
 
 			res += `
@@ -154,6 +157,9 @@ function renderSubmissionLite(submission) {
 			} else if (caseItem.status === 4) {
 				status = "submission-not-passed";
 				label += "M";
+			} else if (caseItem.status === 5) {
+				status = "submission-not-passed";
+				label += "R";
 			} else if (caseItem.status === 3) {
 				status = "submission-not-passed";
 				label += "T";

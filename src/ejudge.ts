@@ -62,7 +62,7 @@ export enum SubmissionCaseStatus {
 
 	timeout,
 	memoryError,
-
+	restrictWord
 }
 
 export interface SubmissionCase {
@@ -870,6 +870,7 @@ export class EJudge {
 				case "Error": status = SubmissionCaseStatus.error; break;
 				case "Timeout": status = SubmissionCaseStatus.timeout; break;
 				case "Memory Error": status = SubmissionCaseStatus.memoryError; break;
+				case "Restrict Word": status = SubmissionCaseStatus.restrictWord; break;
 			}
 
 			const subcase: SubmissionCase = {
