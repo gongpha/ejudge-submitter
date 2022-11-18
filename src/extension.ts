@@ -277,8 +277,12 @@ export function activate(context: vscode.ExtensionContext) {
 				problemDisp.dispose();
 			}
 
-			function updateSubmission(r: Submission, update: boolean) {
-				if (update) { judgingSubmission = r; } else { showingSubmission = r; }
+			function updateSubmission(r: Submission, update: boolean | "both") {
+				if (update === "both") {
+					judgingSubmission = r;
+					showingSubmission = r;
+				}
+				else if (update) { judgingSubmission = r; } else { showingSubmission = r; }
 
 				if (judgingProblem && judgingSubmission) {
 					if (judgingSubmission.cases?.length === judgingProblem.testcases) {
@@ -324,8 +328,7 @@ export function activate(context: vscode.ExtensionContext) {
 							command: "focus_panels",
 							panel: 3
 						});
-						judgingSubmission = r;
-						updateSubmissionToPanel(problem.testcases);
+						updateSubmission(r, "both");
 					});
 				} else if (message.command === "force_refresh") {
 					if (judgingSubmission === undefined) {
