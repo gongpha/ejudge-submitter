@@ -116,6 +116,7 @@ export interface Problem {
 
 	samples?: string[][]; // in, out
 
+	timeLimit? : number; // sec
 	deadline?: Date
 	testcases?: number;
 	restictWord?: string[];
@@ -700,6 +701,10 @@ export class EJudge {
 						rows = $(".col-lg-3 > .row");
 						_ = $(rows[1]).find(".box-body");
 						_ = $(_).find('dd');
+						__ = _.get(0);
+						if (__ !== undefined) {
+							problem.timeLimit = parseInt($(__).text().replace('Second', '').trim());
+						}
 						__ = _.get(3);
 						if (__ !== undefined) {
 							problem.deadline = new Date($(__).text());

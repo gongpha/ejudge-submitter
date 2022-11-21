@@ -79,6 +79,10 @@ export function getProblemContent(webview: Webview, extensionUri: Uri, problem: 
 			<div class="problem-body">
 				<vscode-data-grid aria-label="Basic">
 					<vscode-data-grid-row>
+						<vscode-data-grid-cell grid-column="1">Time Limit</vscode-data-grid-cell>
+						<vscode-data-grid-cell grid-column="2">${problem.timeLimit} sec.</vscode-data-grid-cell>
+					</vscode-data-grid-row>
+					<vscode-data-grid-row>
 						<vscode-data-grid-cell grid-column="1">Deadline</vscode-data-grid-cell>
 						<vscode-data-grid-cell grid-column="2">${problem.deadline?.toLocaleString()}</vscode-data-grid-cell>
 					</vscode-data-grid-row>

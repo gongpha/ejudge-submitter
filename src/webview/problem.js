@@ -67,6 +67,9 @@ function renderResult(results, fromServer = false) {
 			} else if (element.status === 1) {
 				statusText = "Error : " + element.description;
 				classStyle = "submission-error";
+			} else if (element.status === 3) {
+				statusText = "Timeout (+5 sec.)";
+				classStyle = "submission-timeout";
 			} else {
 				statusText = "Incorrect";
 				classStyle = "submission-not-passed";

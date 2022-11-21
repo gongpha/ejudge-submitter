@@ -349,7 +349,7 @@ export function activate(context: vscode.ExtensionContext) {
 interface TestCaseResult {
 	status: SubmissionCaseStatus;
 	description: string;
-	time: number;
+	time?: number;
 }
 
 interface TestResult {
@@ -373,6 +373,15 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 			}
 			let time: number;
 
+			setTimeout(() => {
+				child.kill();
+				resolve({
+					status: SubmissionCaseStatus.timeout,
+					description: "",
+					time: undefined
+				});
+			}, (problem.timeLimit! * 1000) + 5000);
+			
 			child.stdout.on('data', function (data) {
 				const output: string = data.toString().trim();
 				let result: SubmissionCaseStatus;
@@ -391,6 +400,8 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 					}
 				}
 
+				child.kill();
+
 				resolve({
 					status: result,
 					description: desc,
@@ -401,19 +412,19 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 		});
 	}
 
-	function testLoop(result: TestResult, samples: string[][]): Promise<any> {
-		return new Promise<any>((resolve, reject) => {
+	function testLoop(result: TestResult, samples: string[][]): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
 			test(result.results.length).then(r => {
 				if (r.status !== SubmissionCaseStatus.passed) {
 					result.passed = false;
 				}
 				result.results.push(r);
 				if (result.results.length < samples.length) {
-					testLoop(result, samples).then(result => {
-						resolve(result);
+					testLoop(result, samples).then(() => {
+						resolve();
 					}).catch(err => reject(err));
 				} else {
-					resolve(result);
+					resolve();
 				}
 			}).catch(err => reject(err));
 		});
@@ -430,7 +441,6 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 			});
 			return;
 		}
-		let idx = 0;
 
 		const result: TestResult = {
 			results: [],
