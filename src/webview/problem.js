@@ -15,7 +15,13 @@ function renderResult(results, fromServer = false) {
 		let classStyle = "";
 		let statusText = "";
 
-
+		function putDescription() {
+			return `
+					<vscode-data-grid-cell grid-column="3">
+						<pre class="submission-lite submission-time">${element.desc}</pre>
+					</vscode-data-grid-cell>
+				`;
+		}
 
 		if (fromServer) {
 			let col3 = element.timeString === undefined ? "" : `
@@ -29,11 +35,7 @@ function renderResult(results, fromServer = false) {
 			} else if (element.status === 1) {
 				statusText = "Error";
 				classStyle = "submission-error";
-				col3 = `
-					<vscode-data-grid-cell grid-column="3">
-						<pre class="submission-lite submission-time">${element.desc}</pre>
-					</vscode-data-grid-cell>
-				`;
+				col3 = putDescription();
 			} else if (element.status === 2) {
 				statusText = "Incorrect";
 				classStyle = "submission-not-passed";
@@ -48,6 +50,7 @@ function renderResult(results, fromServer = false) {
 			} else {
 				statusText = "Restrict Word";
 				classStyle = "submission-error";
+				col3 = putDescription();
 			}
 
 			res += `
