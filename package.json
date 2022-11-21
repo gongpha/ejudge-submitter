@@ -42,7 +42,19 @@
 				"command": "manageAccount",
 				"title": "Manage an account",
 				"category": "<e>judge"
-			}
+			},
+			{
+                "command": "refreshAllCourses",
+                "title": "Refresh all courses",
+				"category": "<e>judge",
+                "icon": "$(refresh)"
+            },
+			{
+                "command": "refreshCourse",
+                "title": "Refresh the course",
+				"category": "<e>judge",
+                "icon": "$(refresh)"
+            }
 		],
 		"viewsContainers": {
 			"activitybar": [
@@ -79,6 +91,22 @@
 					"markdownDescription": "A header comment on the uploaded file\n - `{username}` : Account username\n - `{fullname}` : Account fullname\n - `{problemID}` : Problem ID\n - `{problemTitle}` : Problem title"
 				}
 			}
+		},
+		"menus": {
+			"view/title": [
+				{
+					"command": "refreshAllCourses",
+					"group": "navigation",
+					"when": "view == courseTree"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "refreshCourse",
+					"group": "inline",
+					"when": "view == courseTree && viewItem == course"
+				}
+			]
 		}
 	},
 	"scripts": {

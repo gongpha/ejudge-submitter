@@ -23,7 +23,7 @@ export class EJudgeCourseTreeProvider implements TreeDataProvider<ProblemItem | 
 	}
 
 	refresh(): void {
-
+		this.clear();
 
 		// gathers all courses
 		this.ejudge.getAllCourceBasics().then((courses) => {
@@ -31,6 +31,10 @@ export class EJudgeCourseTreeProvider implements TreeDataProvider<ProblemItem | 
 			this._onDidChangeTreeData.fire();
 		});
 
+	}
+
+	refreshCourse(course: CourseItem) {
+		this._onDidChangeTreeData.fire(course);
 	}
 
 	clear(): void {
@@ -100,8 +104,7 @@ class EJudgeCourseTreeDecorationProvider implements FileDecorationProvider {
 	}
 }
 
-class CourseItem extends TreeItem {
-	children?: ProblemItem[];
+export class CourseItem extends TreeItem {
 	course: Course;
 
 	constructor(course: Course) {
@@ -111,6 +114,9 @@ class CourseItem extends TreeItem {
 		this.contextValue = "course";
 		this.tooltip = `Owned by ${(course.owner!.fullname) ??= "(Someone . . .)"}\
 			\nRelease : ${(course.release!.toLocaleDateString())}\nExpire : ${course.expire!.toLocaleDateString()}`;
+	}
+
+	refresh() {
 	}
 
 	requestFullItem(ejudge: EJudge): Promise<ProblemItem[]> {

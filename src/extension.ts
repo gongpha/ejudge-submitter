@@ -6,7 +6,7 @@ import {
 import {
 	getProblemContent, getLoginContent, getLoadingContent
 } from './webview';
-import { EJudgeCourseTreeProvider } from './provider';
+import { EJudgeCourseTreeProvider, CourseItem } from './provider';
 import CancelablePromise from './util/cancelable_promise';
 import { spawn } from 'child_process';
 import path = require('path');
@@ -258,6 +258,15 @@ export function activate(context: vscode.ExtensionContext) {
 	// 		panel.webview.html = getSubmissionContent(panel.webview, context.extensionUri, submission);
 	// 	});
 	// });
+
+	const refreshAllCourses = vscode.commands.registerCommand('refreshAllCourses', (a) => {
+		provider.refresh();
+	});
+
+	const refreshCourse = vscode.commands.registerCommand('refreshCourse', (item : CourseItem) => {
+		provider.refreshCourse(item);
+	});
+	context.subscriptions.push(refreshAllCourses, refreshCourse);
 
 	const openProblem = vscode.commands.registerCommand('openProblem', (problemID: number) => {
 		const panel = getWebview(context);
