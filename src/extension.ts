@@ -349,6 +349,7 @@ export function activate(context: vscode.ExtensionContext) {
 interface TestCaseResult {
 	status: SubmissionCaseStatus;
 	description: string;
+	time: number;
 }
 
 interface TestResult {
@@ -361,19 +362,27 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 	function test(idx: number): Promise<TestCaseResult> {
 		return new Promise<TestCaseResult>((resolve, reject) => {
 			const caseItem = problem.samples![idx];
+
 			const params = [(
 				vscode.Uri.joinPath(extensionUri, "src", "mini-ejudge.py").fsPath
 			), filePath, JSON.stringify(caseItem[0]).slice(1, -1), JSON.stringify(caseItem[1]).slice(1, -1)];
 			let child = spawn('python', params);
 
+			function catchTime(out: string): number {
+				return parseFloat(out.substring(1));
+			}
+			let time: number;
+
 			child.stdout.on('data', function (data) {
 				const output: string = data.toString().trim();
 				let result: SubmissionCaseStatus;
 				let desc: string = "";
-				if (output === 't') {
+				if (output[0] === 't') {
 					result = SubmissionCaseStatus.passed;
-				} else if (output === 'f') {
+					time = catchTime(output);
+				} else if (output[0] === 'f') {
 					result = SubmissionCaseStatus.incorrect;
+					time = catchTime(output);
 				} else {
 					result = SubmissionCaseStatus.error;
 					desc = output.substring(1);
@@ -384,7 +393,8 @@ function tryCases(problem: Problem, filePath: string, extensionUri: vscode.Uri):
 
 				resolve({
 					status: result,
-					description: desc
+					description: desc,
+					time: time
 				});
 				return;
 			});

@@ -72,7 +72,12 @@ function renderResult(results, fromServer = false) {
 				classStyle = "submission-not-passed";
 			}
 
-			res += `<pre class="tested-item ${classStyle}">(#${i + 1}) ${statusText}</pre>`;
+			let timestr = "";
+			if (element.time !== undefined) {
+				timestr = ` : ${(element.time).toFixed(8)} sec.`;
+			}
+
+			res += `<pre class="tested-item ${classStyle}">(#${i + 1}) ${statusText}${timestr}</pre>`;
 		}
 	});
 	if (fromServer) {
