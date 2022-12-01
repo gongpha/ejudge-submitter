@@ -10,6 +10,7 @@ const URL_LOGIN = '/auth/loggedin';
 const URL_ACCOUNT = '/account/';
 const URL_COURSE = '/course';
 const URL_PROBLEM = '/problem';
+const URL_USERONLINE = '/useronline';
 
 export interface Authentication {
 	username: string;
@@ -48,6 +49,12 @@ export interface Account {
 	//quizzes
 
 	// other data will get setup here soon . . .
+}
+
+export interface UserActivity {
+	account: Account;
+	date: Date;
+	currentURL: string;
 }
 
 export interface Quality {
@@ -211,24 +218,25 @@ export class EJudge {
 					const col3 = col.find(".col-xs-3");
 					const well = col.find(".col-xs-9 > .well");
 					const aList = col3.find('a');
+					let email: string;
 
-					const aEdit = aList[aList.length - 1];
-					const link = $(aEdit).attr('href')?.split('/');
-					if (link === undefined) {
-						reject("Link wasn't found");
-						return;
+					let lastID = accountID;
+
+					if (aList.length === 2 || lastID === 'me') {
+						// me !
+						email = $(aList[0]).text().trim();
+						let nextele = aList[1];
+						if (email === "") { nextele = aList[0]; }
+						lastID = this.getIDfromLink($(nextele).attr('href')?.toString() || "");
+					} else {
+						email = $(aList[0]).text().trim();
 					}
-					if (link?.length < 2) {
-						reject("Invalid link");
-						return;
-					}
-					const id = link[link.length - 2];
 
 					const aSpan = col3.find('span');
 
 
 					const account: Account = {
-						id: parseInt(id),
+						id: lastID,
 						profilePicURL: $(".img-responsive").attr("src"),
 
 						username: $(aSpan[0]).text().trim(),
@@ -958,6 +966,55 @@ export class EJudge {
 				}
 				resolve(submission);
 			});
+		});
+	}
+
+	getUserOnline(): Promise<UserActivity[]> {
+		return new Promise<UserActivity[]>((resolve, reject) => {
+			this.tryGetCheerOfURLAndCheckAvailability(URL_USERONLINE)
+				.then(
+					$ => {
+						const users: UserActivity[] = [];
+						$('#example2 > tbody').find('tr').each((i, e) => {
+							const tds = $(e).find('td');
+
+							let __ = $(tds[0]);
+							let aHref = __.find("a").first();
+							let url = aHref.attr("href");
+							if (url === undefined) {
+								// hmm, no owner ?
+								reject("Failed to get course list : Cannot get an account URL");
+								return;
+							}
+							const username = aHref.text().trim();
+
+							__ = $(tds[1]);
+							aHref = __.find("a").first();
+							const name = aHref.text().trim();
+
+							const lastTime = $(tds[2]).text().trim();
+
+							__ = $(tds[3]);
+							aHref = __.find("a").first();
+							const current = aHref.text().trim();
+
+
+							const ownerID = this.getIDfromLink(url);
+
+							users.push({
+								account: {
+									id: ownerID,
+									username: username,
+									fullname: name,
+								},
+								date: new Date(lastTime),
+								currentURL: current
+							});
+						});
+						resolve(users);
+					}
+				)
+				.catch(r => reject(r));
 		});
 	}
 

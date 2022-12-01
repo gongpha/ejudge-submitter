@@ -5,7 +5,7 @@ export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) 
 	return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
 }
 
-function getMetaAndScriptTabs(webview: Webview, extensionUri: Uri, script: string) {
+export function getMetaAndScriptTabs(webview: Webview, extensionUri: Uri, script: string) {
 	const toolkitUri = getUri(webview, extensionUri, [
 		"node_modules",
 		"@vscode",
@@ -32,17 +32,17 @@ export function getLoginContent(webview: Webview, extensionUri: Uri, message: st
 				<title>Login</title>
 			</head>
 			<body id="webview-body">
-			<header>
-				<h1>Login</h1>
-			</header>
-			<h3>${message}</h3>
-			<section id="login-form">
-				<vscode-text-field id="username" placeholder="">Username</vscode-text-field>
-				<vscode-text-field id="password" type="password" placeholder="" resize="vertical">Password</vscode-text-field>
-				<vscode-checkbox id="remember" value="true">Remember me</vscode-checkbox>
-				<vscode-button id="login-button">Sign in</vscode-button>
-				<vscode-button id="cancel-button" appearance="secondary">Cancel</vscode-button>
-			</section>
+				<header>
+					<h1>Login</h1>
+				</header>
+				<h3>${message}</h3>
+				<section id="login-form">
+					<vscode-text-field id="username" placeholder="">Username</vscode-text-field>
+					<vscode-text-field id="password" type="password" placeholder="" resize="vertical">Password</vscode-text-field>
+					<vscode-checkbox id="remember" value="true">Remember me</vscode-checkbox>
+					<vscode-button id="login-button">Sign in</vscode-button>
+					<vscode-button id="cancel-button" appearance="secondary">Cancel</vscode-button>
+				</section>
 			</body>
 		</html>
 	  `;

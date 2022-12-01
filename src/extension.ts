@@ -11,8 +11,10 @@ import CancelablePromise from './util/cancelable_promise';
 import { spawn } from 'child_process';
 import path = require('path');
 import { formatBlock } from './util/stringtool';
+import { EJudgeStalker } from './stalker';
 
 let panel: vscode.WebviewPanel | undefined = undefined;
+let stalker: EJudgeStalker | undefined;
 
 let panelLoading: CancelablePromise<any> | undefined;
 let problemDisp: vscode.Disposable | undefined = undefined;
@@ -125,7 +127,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}).catch(r => {
 			//vscode.window.showErrorMessage("Login failed : " + r);
 		}); // do nothing
-	};
+	}
 
 	function logoutCommand() {
 		student.tryLogout().then(r => {
@@ -134,14 +136,15 @@ export function activate(context: vscode.ExtensionContext) {
 			closeAllPanel();
 			provider.clear();
 		});
-	};
+	}
 
-	function strFormat(s: string) {
-		let i = 0, args = arguments;
-		return s.replace(/{}/g, function () {
-			return typeof args[i] !== 'undefined' ? args[i++] : '';
-		});
-	};
+	function openUserStalker() {
+		if (!stalker) {
+			stalker = new EJudgeStalker(student, context);
+		}
+
+		stalker.launch();
+	}
 
 	function parseCustomComment(problem: Problem, raw: string): string[] {
 		if (raw === "") { return []; }
@@ -208,7 +211,12 @@ export function activate(context: vscode.ExtensionContext) {
 	setMeToStatusBar();
 
 	const manageAccount = vscode.commands.registerCommand('manageAccount', () => {
-		const list: Array<vscode.QuickPickItem> = [];
+		const list: Array<vscode.QuickPickItem> = [
+			{
+				label: "Open User Stalker",
+				description: "Open a list of online user",
+			}
+		];
 		if (myAccount === undefined) {
 			list.push({
 				label: "Login",
@@ -231,6 +239,9 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 			else if (value.label === "Logout") {
 				logoutCommand();
+			}
+			else if (value.label === "Open User Stalker") {
+				openUserStalker();
 			}
 		});
 	});
